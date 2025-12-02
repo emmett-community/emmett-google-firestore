@@ -1,0 +1,60 @@
+### Shopping Cart API - Manual Tests
+### Use with REST Client extension in VS Code
+###
+### 💡 Visualizar dados: http://localhost:4000
+
+@baseUrl = http://localhost:3000
+@clientId = test-client-1
+@token = token-writer
+
+### Add product item to cart
+POST {{baseUrl}}/clients/{{clientId}}/shopping-carts/current/product-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "productId": "product-1",
+  "quantity": 2
+}
+
+### Add another product (to SAME cart)
+POST {{baseUrl}}/clients/{{clientId}}/shopping-carts/current/product-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "productId": "product-2",
+  "quantity": 1
+}
+
+### Remove product item from cart (CORRECTED - usando query params)
+DELETE {{baseUrl}}/clients/{{clientId}}/shopping-carts/current/product-items?productId=product-1&quantity=1&unitPrice=100
+Authorization: Bearer {{token}}
+
+### Confirm cart
+POST {{baseUrl}}/clients/{{clientId}}/shopping-carts/current/confirm
+Authorization: Bearer {{token}}
+
+### Try to add to confirmed cart (should fail)
+POST {{baseUrl}}/clients/{{clientId}}/shopping-carts/current/product-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "productId": "product-3",
+  "quantity": 1
+}
+
+### New cart for different client
+POST {{baseUrl}}/clients/another-client/shopping-carts/current/product-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "productId": "product-3",
+  "quantity": 5
+}
+
+### Cancel cart
+DELETE {{baseUrl}}/clients/another-client/shopping-carts/current
+Authorization: Bearer {{token}}
