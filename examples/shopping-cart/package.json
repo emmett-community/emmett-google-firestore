@@ -17,7 +17,7 @@
     "test:e2e:watch": "glob -d -c \"node --import tsx --import tsx/cjs --test --watch\" \"test/**/*.e2e.spec.ts\""
   },
   "dependencies": {
-    "@emmett-community/emmett-expressjs-with-openapi": "file:/Users/axcosta/Git/pessoal/oss/emmett-expressjs-with-openapi",
+    "@emmett-community/emmett-expressjs-with-openapi": "file:../../../emmett-expressjs-with-openapi",
     "@emmett-community/emmett-google-firestore": "file:../..",
     "@event-driven-io/emmett": "0.39.1",
     "express": "^4.21.2",
