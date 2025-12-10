@@ -1,5 +1,4 @@
-import type { Firestore, Transaction } from '@google-cloud/firestore';
-import { Timestamp } from '@google-cloud/firestore';
+import type { Firestore, Transaction, Timestamp } from '@google-cloud/firestore';
 import type { Event } from '@event-driven-io/emmett';
 import type {
   AppendToStreamOptions,
@@ -196,7 +195,8 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       currentVersion === STREAM_DOES_NOT_EXIST ? -1 : Number(currentVersion);
 
     // 5. Append events to subcollection
-    const now = Timestamp.now();
+    const TimestampClass = this.firestore.constructor as unknown as { Timestamp: typeof Timestamp };
+    const now = TimestampClass.Timestamp.now();
 
     events.forEach((event, index) => {
       const eventVersion = baseVersion + 1 + index;
