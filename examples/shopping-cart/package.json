@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Full shopping cart sample using emmett + express-openapi-validator",
   "scripts": {
+    "build": "tsc",
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "test": "run-s test:unit test:int test:e2e",
@@ -17,7 +18,7 @@
     "test:e2e:watch": "glob -d -c \"node --import tsx --import tsx/cjs --test --watch\" \"test/**/*.e2e.spec.ts\""
   },
   "dependencies": {
-    "@emmett-community/emmett-expressjs-with-openapi": "file:../../../emmett-expressjs-with-openapi",
+    "@emmett-community/emmett-expressjs-with-openapi": "0.1.0",
     "@emmett-community/emmett-google-firestore": "file:../..",
     "@event-driven-io/emmett": "0.39.1",
     "express": "^4.21.2",

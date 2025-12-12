@@ -22,14 +22,15 @@ services:
 
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: examples/shopping-cart/Dockerfile
     ports:
       - "3000:3000"
     environment:
       - FIRESTORE_PROJECT_ID=demo-project
       - FIRESTORE_EMULATOR_HOST=firebase:8080
       - PORT=3000
+      - NODE_ENV=production
     depends_on:
       firebase:
         condition: service_healthy

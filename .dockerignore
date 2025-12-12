@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+
+# Dependencies (will be installed fresh in Docker)
+node_modules
+examples/shopping-cart/node_modules
+
+# Build artifacts (will be built in Docker)
+dist
+examples/shopping-cart/dist
+
+# Lock files (npm ci will use package-lock.json copied separately)
+# Commented out to allow npm ci to use them
+# package-lock.json
+# examples/shopping-cart/package-lock.json
+
+# Testing
+coverage
+test
+examples/shopping-cart/test
+*.test.ts
+*.spec.ts
+
+# Development
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+.DS_Store
+*.swp
+
+# Documentation (keep only necessary files)
+*.md
+!README.md
+
+# Logs
+*.log
+logs
+
+# Claude
+.claude
+
+# Firebase local data
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+examples/shopping-cart/firestore-data
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Other build artifacts
+*.tsbuildinfo
+tsconfig.tsbuildinfo
