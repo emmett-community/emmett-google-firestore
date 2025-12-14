@@ -84,6 +84,7 @@ Events are stored using a **subcollection pattern** for optimal performance:
 ```
 
 **Benefits of this structure:**
+
 - ✅ No document size limits (Firestore 1MB limit doesn't apply to subcollections)
 - ✅ Natural isolation per stream
 - ✅ Automatic ordering (document IDs sort naturally)
@@ -128,6 +129,7 @@ await eventStore.appendToStream('User-123', events, {
 Creates a Firestore event store instance.
 
 **Parameters:**
+
 - `firestore`: Firestore instance
 - `options`: Optional configuration
   - `collections`: Custom collection names
@@ -150,6 +152,7 @@ const eventStore = getFirestoreEventStore(firestore, {
 Appends events to a stream.
 
 **Parameters:**
+
 - `streamName`: Stream identifier (e.g., `"User-123"`)
 - `events`: Array of events to append
 - `options`: Optional append options
@@ -173,6 +176,7 @@ console.log(result.createdNewStream); // true/false
 Reads events from a stream.
 
 **Parameters:**
+
 - `streamName`: Stream identifier
 - `options`: Optional read options
   - `from`: Start version (inclusive)
@@ -205,6 +209,7 @@ const events = await eventStore.readStream('User-123', {
 Aggregates stream events into state.
 
 **Parameters:**
+
 - `streamName`: Stream identifier
 - `evolve`: Function to apply events to state
 - `initialState`: Function returning initial state

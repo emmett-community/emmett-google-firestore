@@ -5,9 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2025-12-14
 
 ### Added
+
 - Initial implementation of Firestore event store
 - Support for event appending with optimistic concurrency
 - Support for event reading and stream aggregation
@@ -16,7 +17,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shopping cart example application
 - Documentation
 
-## [0.1.0] - TBD
-
-### Added
-- First beta release
+[0.1.0]: https://github.com/emmett-community/emmett-google-firestore/releases/tag/0.1.0

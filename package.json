@@ -57,7 +57,7 @@
     "event-driven",
     "ddd"
   ],
-  "author": "Emmett Community",
+  "author": "Andre X Costa",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -91,5 +91,6 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "publishConfig": {"access": "public"}
 }
