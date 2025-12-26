@@ -1,4 +1,4 @@
-import { Firestore } from '@google-cloud/firestore';
+import type { Firestore } from '@google-cloud/firestore';
 import type { Event } from '@event-driven-io/emmett';
 import {
   getFirestoreEventStore,
@@ -7,9 +7,9 @@ import {
   STREAM_EXISTS,
   NO_CONCURRENCY_CHECK,
   ExpectedVersionConflictError,
-} from '../../src';
+} from '../src';
+import { InMemoryFirestore } from './support/inMemoryFirestore';
 
-// Test events
 type UserRegistered = Event<
   'UserRegistered',
   { userId: string; email: string; name: string }
@@ -23,24 +23,12 @@ type UserEmailChanged = Event<
 type UserEvent = UserRegistered | UserEmailChanged;
 
 describe('FirestoreEventStore Integration Tests', () => {
-  let firestore: Firestore;
+  let firestore: InMemoryFirestore;
   let eventStore: FirestoreEventStore;
 
   beforeAll(() => {
-    // Connect to Firestore Emulator
-    const projectId = process.env.FIRESTORE_PROJECT_ID || 'test-project';
-    const host = process.env.FIRESTORE_EMULATOR_HOST || 'localhost:8080';
-
-    firestore = new Firestore({
-      projectId,
-      host,
-      ssl: false,
-      customHeaders: {
-        Authorization: 'Bearer owner',
-      },
-    });
-
-    eventStore = getFirestoreEventStore(firestore);
+    firestore = new InMemoryFirestore();
+    eventStore = getFirestoreEventStore(firestore as unknown as Firestore);
   });
 
   afterAll(async () => {
@@ -48,7 +36,6 @@ describe('FirestoreEventStore Integration Tests', () => {
   });
 
   beforeEach(async () => {
-    // Clear all collections before each test
     const collections = await firestore.listCollections();
     for (const collection of collections) {
       await deleteCollection(firestore, collection.id);
@@ -97,7 +84,6 @@ describe('FirestoreEventStore Integration Tests', () => {
     it('should append events to existing stream', async () => {
       const streamName = 'User-789';
 
-      // First append
       await eventStore.appendToStream(streamName, [
         {
           type: 'UserRegistered',
@@ -105,7 +91,6 @@ describe('FirestoreEventStore Integration Tests', () => {
         } as UserEvent,
       ]);
 
-      // Second append
       const result = await eventStore.appendToStream(streamName, [
         {
           type: 'UserEmailChanged',
@@ -161,7 +146,6 @@ describe('FirestoreEventStore Integration Tests', () => {
       it('should fail when stream exists with STREAM_DOES_NOT_EXIST expectation', async () => {
         const streamName = 'User-333';
 
-        // Create stream
         await eventStore.appendToStream(streamName, [
           {
             type: 'UserRegistered',
@@ -169,7 +153,6 @@ describe('FirestoreEventStore Integration Tests', () => {
           } as UserEvent,
         ]);
 
-        // Try to append with STREAM_DOES_NOT_EXIST
         await expect(
           eventStore.appendToStream(
             streamName,
@@ -187,7 +170,6 @@ describe('FirestoreEventStore Integration Tests', () => {
       it('should succeed when stream exists with STREAM_EXISTS', async () => {
         const streamName = 'User-444';
 
-        // Create stream
         await eventStore.appendToStream(streamName, [
           {
             type: 'UserRegistered',
@@ -195,7 +177,6 @@ describe('FirestoreEventStore Integration Tests', () => {
           } as UserEvent,
         ]);
 
-        // Append with STREAM_EXISTS
         const result = await eventStore.appendToStream(
           streamName,
           [
@@ -230,7 +211,6 @@ describe('FirestoreEventStore Integration Tests', () => {
       it('should succeed with correct specific version', async () => {
         const streamName = 'User-666';
 
-        // Create stream
         await eventStore.appendToStream(streamName, [
           {
             type: 'UserRegistered',
@@ -238,7 +218,6 @@ describe('FirestoreEventStore Integration Tests', () => {
           } as UserEvent,
         ]);
 
-        // Append with correct version
         const result = await eventStore.appendToStream(
           streamName,
           [
@@ -256,7 +235,6 @@ describe('FirestoreEventStore Integration Tests', () => {
       it('should fail with incorrect specific version', async () => {
         const streamName = 'User-777';
 
-        // Create stream
         await eventStore.appendToStream(streamName, [
           {
             type: 'UserRegistered',
@@ -264,7 +242,6 @@ describe('FirestoreEventStore Integration Tests', () => {
           } as UserEvent,
         ]);
 
-        // Try to append with wrong version
         await expect(
           eventStore.appendToStream(
             streamName,
@@ -277,33 +254,6 @@ describe('FirestoreEventStore Integration Tests', () => {
             { expectedStreamVersion: BigInt(5) },
           ),
         ).rejects.toThrow(ExpectedVersionConflictError);
-      });
-    });
-
-    describe('global position', () => {
-      it('should assign sequential global positions across streams', async () => {
-        // Append to first stream
-        await eventStore.appendToStream('User-A', [
-          {
-            type: 'UserRegistered',
-            data: { userId: 'A', email: 'a@example.com', name: 'A' },
-          } as UserEvent,
-        ]);
-
-        // Append to second stream
-        await eventStore.appendToStream('User-B', [
-          {
-            type: 'UserRegistered',
-            data: { userId: 'B', email: 'b@example.com', name: 'B' },
-          } as UserEvent,
-        ]);
-
-        // Read both streams
-        const eventsA = await eventStore.readStream<UserEvent>('User-A');
-        const eventsB = await eventStore.readStream<UserEvent>('User-B');
-
-        expect(eventsA[0].metadata.globalPosition).toBe(BigInt(0));
-        expect(eventsB[0].metadata.globalPosition).toBe(BigInt(1));
       });
     });
   });
@@ -359,111 +309,6 @@ describe('FirestoreEventStore Integration Tests', () => {
       expect(events[0].metadata.streamPosition).toBe(BigInt(0));
       expect(events[0].metadata.globalPosition).toBeGreaterThanOrEqual(BigInt(0));
       expect(events[0].metadata.timestamp).toBeInstanceOf(Date);
-    });
-
-    it('should read events with from option', async () => {
-      const streamName = 'User-GHI';
-      const events: UserEvent[] = [
-        {
-          type: 'UserRegistered',
-          data: { userId: 'GHI', email: '1@example.com', name: '1' },
-        },
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'GHI', newEmail: '2@example.com' },
-        },
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'GHI', newEmail: '3@example.com' },
-        },
-      ];
-
-      await eventStore.appendToStream(streamName, events);
-
-      const readEvents = await eventStore.readStream<UserEvent>(streamName, {
-        from: BigInt(1),
-      });
-
-      expect(readEvents).toHaveLength(2);
-      expect(readEvents[0].metadata.streamVersion).toBe(BigInt(1));
-      expect(readEvents[1].metadata.streamVersion).toBe(BigInt(2));
-    });
-
-    it('should read events with to option', async () => {
-      const streamName = 'User-JKL';
-      const events: UserEvent[] = [
-        {
-          type: 'UserRegistered',
-          data: { userId: 'JKL', email: '1@example.com', name: '1' },
-        },
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'JKL', newEmail: '2@example.com' },
-        },
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'JKL', newEmail: '3@example.com' },
-        },
-      ];
-
-      await eventStore.appendToStream(streamName, events);
-
-      const readEvents = await eventStore.readStream<UserEvent>(streamName, {
-        to: BigInt(1),
-      });
-
-      expect(readEvents).toHaveLength(2);
-      expect(readEvents[0].metadata.streamVersion).toBe(BigInt(0));
-      expect(readEvents[1].metadata.streamVersion).toBe(BigInt(1));
-    });
-
-    it('should read events with from and to range', async () => {
-      const streamName = 'User-MNO';
-      const events: UserEvent[] = [
-        {
-          type: 'UserRegistered',
-          data: { userId: 'MNO', email: '0@example.com', name: '0' },
-        },
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'MNO', newEmail: '1@example.com' },
-        },
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'MNO', newEmail: '2@example.com' },
-        },
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'MNO', newEmail: '3@example.com' },
-        },
-      ];
-
-      await eventStore.appendToStream(streamName, events);
-
-      const readEvents = await eventStore.readStream<UserEvent>(streamName, {
-        from: BigInt(1),
-        to: BigInt(2),
-      });
-
-      expect(readEvents).toHaveLength(2);
-      expect(readEvents[0].metadata.streamVersion).toBe(BigInt(1));
-      expect(readEvents[1].metadata.streamVersion).toBe(BigInt(2));
-    });
-
-    it('should limit events with maxCount option', async () => {
-      const streamName = 'User-PQR';
-      const events: UserEvent[] = Array.from({ length: 10 }, (_, i) => ({
-        type: 'UserEmailChanged',
-        data: { userId: 'PQR', newEmail: `${i}@example.com` },
-      })) as UserEvent[];
-
-      await eventStore.appendToStream(streamName, events);
-
-      const readEvents = await eventStore.readStream<UserEvent>(streamName, {
-        maxCount: 5,
-      });
-
-      expect(readEvents).toHaveLength(5);
     });
   });
 
@@ -532,103 +377,11 @@ describe('FirestoreEventStore Integration Tests', () => {
       expect(result.streamExists).toBe(true);
       expect(result.currentStreamVersion).toBe(BigInt(1));
     });
-
-    it('should aggregate with range options', async () => {
-      const streamName = 'User-YZ';
-      await eventStore.appendToStream(streamName, [
-        {
-          type: 'UserRegistered',
-          data: { userId: 'YZ', email: '1@example.com', name: 'YZ' },
-        } as UserEvent,
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'YZ', newEmail: '2@example.com' },
-        } as UserEvent,
-        {
-          type: 'UserEmailChanged',
-          data: { userId: 'YZ', newEmail: '3@example.com' },
-        } as UserEvent,
-      ]);
-
-      // Aggregate only first two events
-      const result = await eventStore.aggregateStream(streamName, {
-        evolve,
-        initialState,
-        read: { to: BigInt(1) },
-      });
-
-      expect(result.state.email).toBe('2@example.com');
-      expect(result.streamExists).toBe(true);
-      expect(result.currentStreamVersion).toBe(BigInt(1));
-    });
-  });
-
-  describe('concurrent operations', () => {
-    it('should handle concurrent appends to different streams', async () => {
-      const promises = Array.from({ length: 10 }, (_, i) =>
-        eventStore.appendToStream(`User-Concurrent-${i}`, [
-          {
-            type: 'UserRegistered',
-            data: { userId: `${i}`, email: `${i}@example.com`, name: `User${i}` },
-          } as UserEvent,
-        ]),
-      );
-
-      const results = await Promise.all(promises);
-
-      results.forEach((result) => {
-        expect(result.nextExpectedStreamVersion).toBe(BigInt(0));
-        expect(result.createdNewStream).toBe(true);
-      });
-    });
-
-    it('should detect version conflicts in concurrent appends to same stream', async () => {
-      const streamName = 'User-Conflict';
-
-      // Create stream
-      await eventStore.appendToStream(streamName, [
-        {
-          type: 'UserRegistered',
-          data: { userId: 'Conflict', email: 'test@example.com', name: 'Test' },
-        } as UserEvent,
-      ]);
-
-      // Try concurrent appends with same expected version
-      const promises = Array.from({ length: 5 }, () =>
-        eventStore.appendToStream(
-          streamName,
-          [
-            {
-              type: 'UserEmailChanged',
-              data: { userId: 'Conflict', newEmail: 'new@example.com' },
-            } as UserEvent,
-          ],
-          { expectedStreamVersion: BigInt(0) },
-        ),
-      );
-
-      const results = await Promise.allSettled(promises);
-
-      const succeeded = results.filter((r) => r.status === 'fulfilled');
-      const failed = results.filter((r) => r.status === 'rejected');
-
-      // Only one should succeed
-      expect(succeeded).toHaveLength(1);
-      expect(failed).toHaveLength(4);
-
-      // Failed ones should have ExpectedVersionConflictError
-      failed.forEach((result) => {
-        if (result.status === 'rejected') {
-          expect(result.reason).toBeInstanceOf(ExpectedVersionConflictError);
-        }
-      });
-    });
   });
 });
 
-// Helper function to delete a collection
 async function deleteCollection(
-  firestore: Firestore,
+  firestore: InMemoryFirestore,
   collectionPath: string,
   batchSize = 100,
 ): Promise<void> {
@@ -636,13 +389,13 @@ async function deleteCollection(
   const query = collectionRef.limit(batchSize);
 
   return new Promise((resolve, reject) => {
-    deleteQueryBatch(firestore, query, resolve, reject);
+    void deleteQueryBatch(firestore, query, resolve, reject);
   });
 }
 
 async function deleteQueryBatch(
-  firestore: Firestore,
-  query: FirebaseFirestore.Query,
+  firestore: InMemoryFirestore,
+  query: { get: () => Promise<{ size: number; docs: Array<{ ref: unknown }> }> },
   resolve: () => void,
   reject: (error: Error) => void,
 ): Promise<void> {
@@ -656,7 +409,7 @@ async function deleteQueryBatch(
 
     const batch = firestore.batch();
     snapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref);
+      batch.delete(doc.ref as any);
     });
     await batch.commit();
 

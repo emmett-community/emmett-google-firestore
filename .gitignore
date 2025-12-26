@@ -44,6 +44,7 @@ temp/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+!test/support/firebase/.firebaserc
 
 # Plans
 .claude/

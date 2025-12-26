@@ -234,38 +234,17 @@ const state = await eventStore.aggregateStream(
 
 ## Testing
 
-### Testing Utilities
-
-The package includes utilities to make testing easier:
-
-```typescript
-import {
-  setupFirestoreTests,
-  getTestFirestore,
-  clearFirestore,
-} from '@emmett-community/emmett-google-firestore/testing';
-
-describe('My Tests', () => {
-  const { firestore, eventStore, cleanup, clearData } = setupFirestoreTests();
-
-  afterAll(cleanup);
-  beforeEach(clearData);
-
-  it('should work', async () => {
-    await eventStore.appendToStream('test-stream', [/* events */]);
-    // ... assertions
-  });
-});
-```
-
 ### Running Tests
 
 ```bash
 # Unit tests
 npm run test:unit
 
-# Integration tests (requires Firestore Emulator)
-npm run test:integration
+# Integration tests (in-memory)
+npm run test:int
+
+# E2E tests (Firestore Emulator via Testcontainers, requires Docker)
+npm run test:e2e
 
 # All tests
 npm test
@@ -274,9 +253,17 @@ npm test
 npm run test:coverage
 ```
 
+Test files live in `test/` and are selected by filename suffix:
+
+- `*.unit.spec.ts` (unit tests, pure logic)
+- `*.int.spec.ts` (integration tests, in-memory Firestore)
+- `*.e2e.spec.ts` (E2E tests, Firestore emulator via Testcontainers)
+
+Support fixtures live under `test/support` (including Firebase emulator configs in `test/support/firebase`).
+
 ### Using Firestore Emulator
 
-For local development and testing:
+For local development and manual testing:
 
 ```bash
 # Install Firebase CLI
@@ -284,9 +271,6 @@ npm install -g firebase-tools
 
 # Start emulator
 firebase emulators:start --only firestore
-
-# Or use the provided script
-./scripts/start-emulator.sh
 ```
 
 Set environment variables:
@@ -295,6 +279,8 @@ Set environment variables:
 export FIRESTORE_PROJECT_ID=test-project
 export FIRESTORE_EMULATOR_HOST=localhost:8080
 ```
+
+E2E tests start the emulator automatically via Testcontainers.
 
 ## Examples
 

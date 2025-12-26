@@ -10,7 +10,7 @@ import {
   STREAM_DOES_NOT_EXIST,
   STREAM_EXISTS,
   NO_CONCURRENCY_CHECK,
-} from '../../src';
+} from '../src';
 
 describe('Utility Functions', () => {
   describe('padVersion', () => {
