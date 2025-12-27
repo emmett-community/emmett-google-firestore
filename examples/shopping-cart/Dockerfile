@@ -35,7 +35,6 @@ RUN npm install && npm install /tmp/*.tgz && npm install yaml
 
 # Copiar código fonte
 COPY examples/shopping-cart/src ./src
-COPY examples/shopping-cart/openapi.yml ./openapi.yml
 
 # ============================================
 # Stage 3: Production Runtime
@@ -47,7 +46,6 @@ WORKDIR /app
 # Copiar node_modules e código
 COPY --from=builder-app /app/node_modules ./node_modules
 COPY --from=builder-app /app/src ./src
-COPY --from=builder-app /app/openapi.yml ./openapi.yml
 COPY --from=builder-app /app/package.json ./package.json
 
 EXPOSE 3000

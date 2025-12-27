@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
@@ -44,6 +43,8 @@ temp/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+!test/support/firebase/.firebaserc
+!examples/shopping-cart/test/support/firebase/.firebaserc
 
 # Plans
 .claude/

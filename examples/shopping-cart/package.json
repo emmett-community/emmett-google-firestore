@@ -18,7 +18,7 @@
     "test:e2e:watch": "glob -d -c \"node --import tsx --import tsx/cjs --test --watch\" \"test/**/*.e2e.spec.ts\""
   },
   "dependencies": {
-    "@emmett-community/emmett-expressjs-with-openapi": "0.1.0",
+    "@emmett-community/emmett-expressjs-with-openapi": "0.2.0",
     "@emmett-community/emmett-google-firestore": "file:../..",
     "@event-driven-io/emmett": "0.39.1",
     "express": "^4.21.2",
@@ -32,6 +32,7 @@
     "@types/supertest": "^6.0.2",
     "glob": "^11.0.0",
     "npm-run-all2": "^6.2.2",
+    "testcontainers": "^10.28.0",
     "tsx": "^4.19.2",
     "typescript": "^5.5.4"
   }

@@ -191,15 +191,19 @@ examples/shopping-cart/
 │   ├── shoppingCarts/
 │   │   ├── shoppingCart.ts      # Domain types
 │   │   └── businessLogic.ts     # Event sourcing logic
+│   ├── openapi.yml              # OpenAPI specification
 │   └── index.ts                 # Application entry point
 ├── test/
 │   ├── businessLogic.unit.spec.ts    # Unit tests
-│   ├── handlers.int.spec.ts          # Integration tests with emulator
-│   └── handlers.e2e.spec.ts          # End-to-end tests
-├── openapi.yml                  # OpenAPI specification
+│   ├── handlers.int.spec.ts          # Integration tests (in-memory)
+│   ├── handlers.e2e.spec.ts          # End-to-end tests (emulator)
+│   └── support/
+│       ├── inMemoryFirestore.ts      # In-memory Firestore for tests
+│       └── firebase/                 # Firebase emulator config
+│           ├── firebase.json
+│           └── .firebaserc
 ├── docker-compose.yml           # Docker Compose configuration
-├── Dockerfile.firebase          # Firebase emulator image
-└── firebase.json                # Firebase configuration
+└── Dockerfile                   # Example runtime image
 ```
 
 ## Environment Variables
