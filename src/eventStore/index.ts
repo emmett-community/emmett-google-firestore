@@ -14,6 +14,8 @@ export type {
   CollectionConfig,
   StreamMetadata,
   EventDocument,
+  Logger,
+  ObservabilityOptions,
 } from './types';
 
 export {
