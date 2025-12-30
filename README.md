@@ -66,7 +66,7 @@ const state = await eventStore.aggregateStream(
 
 Events are stored using a **subcollection pattern** for optimal performance:
 
-```
+```text
 /streams/                              # Root collection
   {streamName}/                        # Stream document (metadata)
     version: number
@@ -593,6 +593,12 @@ npm run format
 
 MIT © Emmett Community
 
+## Acknowledgments
+
+- Built for the [Emmett](https://event-driven-io.github.io/emmett/) framework by [Oskar Dudycz](https://github.com/oskardudycz)
+- Inspired by [emmett-mongodb](https://github.com/event-driven-io/emmett/tree/main/src/packages/emmett-mongodb)
+- Part of the [Emmett Community](https://github.com/emmett-community)
+
 ## Resources
 
 - [Emmett Documentation](https://event-driven-io.github.io/emmett/)
@@ -606,8 +612,6 @@ MIT © Emmett Community
 - **Discussions**: [GitHub Discussions](https://github.com/emmett-community/emmett-google-firestore/discussions)
 - **Emmett Discord**: [Join Discord](https://discord.gg/fTpqUTMmVa)
 
-## Acknowledgments
+---
 
-- Built for the [Emmett](https://event-driven-io.github.io/emmett/) framework by [Oskar Dudycz](https://github.com/oskardudycz)
-- Inspired by [emmett-mongodb](https://github.com/event-driven-io/emmett/tree/main/src/packages/emmett-mongodb)
-- Part of the [Emmett Community](https://github.com/emmett-community)
+Made with ❤️ by the Emmett Community
