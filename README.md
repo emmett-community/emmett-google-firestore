@@ -493,6 +493,54 @@ try {
 }
 ```
 
+## Observability
+
+The event store supports optional logging and OpenTelemetry tracing.
+
+### Logging
+
+Pass an optional logger compatible with Pino:
+
+```typescript
+import pino from 'pino';
+
+const eventStore = getFirestoreEventStore(firestore, {
+  observability: {
+    logger: pino({ level: 'debug' }),
+  },
+});
+```
+
+**Logging points:**
+
+- `info`: Initialization
+- `debug`: I/O operations (queries, transactions)
+- `warn`: Version conflicts (recoverable)
+- `error`: Failures before rethrowing
+
+**Note:** Event payloads are never logged.
+
+### Tracing
+
+The package uses `@opentelemetry/api` directly. Spans are created passively:
+
+- If your application initializes OpenTelemetry, spans will be recorded
+- If not, the tracing calls are no-ops with zero overhead
+
+**Span names:**
+
+- `emmett.firestore.read_stream`
+- `emmett.firestore.append_to_stream`
+
+**Attributes:**
+
+- `emmett.stream_name`
+- `emmett.event_count`
+- `emmett.new_version`
+- `emmett.created_new_stream`
+
+To enable tracing, initialize OpenTelemetry in your application (this package never initializes tracing itself).
+
 ## TypeScript Support
 
 The package is written in TypeScript and includes full type definitions:

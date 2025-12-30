@@ -8,6 +8,25 @@ import {
 } from '@event-driven-io/emmett';
 
 /**
+ * Minimal logger interface compatible with Pino and other loggers.
+ * All methods are optional to support varying logger implementations.
+ */
+export interface Logger {
+  debug?(msg: string, data?: unknown): void;
+  info?(msg: string, data?: unknown): void;
+  warn?(msg: string, data?: unknown): void;
+  error?(msg: string, err?: unknown): void;
+}
+
+/**
+ * Observability configuration options
+ */
+export interface ObservabilityOptions {
+  /** Optional logger instance. If not provided, no logging occurs. */
+  logger?: Logger;
+}
+
+/**
  * Expected version for stream operations
  * Uses Emmett's standard version constants for full compatibility
  * - number | bigint: Expect specific version
@@ -95,6 +114,7 @@ export interface CollectionConfig {
  */
 export interface FirestoreEventStoreOptions {
   collections?: Partial<CollectionConfig>;
+  observability?: ObservabilityOptions;
 }
 
 /**
