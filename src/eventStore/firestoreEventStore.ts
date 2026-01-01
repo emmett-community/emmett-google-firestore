@@ -25,20 +25,59 @@ import {
 const tracer = trace.getTracer('@emmett-community/emmett-google-firestore');
 
 /**
- * Safe logging helper that handles undefined logger methods
+ * @internal - NOT part of public API
+ * Normalizes data to a context object for the Logger contract.
  */
-function safeLog(
-  logger: Logger | undefined,
-  level: keyof Logger,
-  msg: string,
-  data?: unknown,
-): void {
-  if (!logger) return;
-  const logFn = logger[level];
-  if (typeof logFn === 'function') {
-    logFn.call(logger, msg, data);
+function normalizeContext(data: unknown): Record<string, unknown> {
+  if (data === undefined || data === null) return {};
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    return { ...(data as Record<string, unknown>) };
   }
+  return { data };
 }
+
+/**
+ * @internal - NOT part of public API
+ * Normalizes error data to a context object for the Logger contract.
+ * Uses 'err' key for Error instances (Pino compatibility).
+ */
+function normalizeErrorContext(error: unknown): Record<string, unknown> {
+  if (error === undefined || error === null) return {};
+  if (error instanceof Error) {
+    return { err: error };
+  }
+  if (typeof error === 'object' && !Array.isArray(error)) {
+    return { ...(error as Record<string, unknown>) };
+  }
+  return { err: error };
+}
+
+/**
+ * @internal - NOT part of public API
+ *
+ * Internal helper for ergonomic logging within this package.
+ * Translates internal (msg, data) calls to canonical (context, message) contract.
+ *
+ * This is the ONLY point where translation from internal format to contract format occurs.
+ */
+const safeLog = {
+  debug: (logger: Logger | undefined, msg: string, data?: unknown): void => {
+    if (!logger) return;
+    logger.debug(normalizeContext(data), msg);
+  },
+  info: (logger: Logger | undefined, msg: string, data?: unknown): void => {
+    if (!logger) return;
+    logger.info(normalizeContext(data), msg);
+  },
+  warn: (logger: Logger | undefined, msg: string, data?: unknown): void => {
+    if (!logger) return;
+    logger.warn(normalizeContext(data), msg);
+  },
+  error: (logger: Logger | undefined, msg: string, error?: unknown): void => {
+    if (!logger) return;
+    logger.error(normalizeErrorContext(error), msg);
+  },
+};
 
 const DEFAULT_COLLECTIONS: CollectionConfig = {
   streams: 'streams',
@@ -67,7 +106,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
     };
     this.logger = options.observability?.logger;
 
-    safeLog(this.logger, 'info', 'FirestoreEventStore initialized');
+    safeLog.info(this.logger, 'FirestoreEventStore initialized');
   }
 
   /**
@@ -82,7 +121,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
     });
 
     try {
-      safeLog(this.logger, 'debug', 'Reading stream', {
+      safeLog.debug(this.logger, 'Reading stream', {
         streamName,
         from: options.from?.toString(),
         to: options.to?.toString(),
@@ -132,7 +171,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       span.setAttribute('emmett.event_count', events.length);
       span.setStatus({ code: SpanStatusCode.OK });
 
-      safeLog(this.logger, 'debug', 'Stream read completed', {
+      safeLog.debug(this.logger, 'Stream read completed', {
         streamName,
         eventCount: events.length,
       });
@@ -142,7 +181,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       span.recordException(error as Error);
       span.setStatus({ code: SpanStatusCode.ERROR });
 
-      safeLog(this.logger, 'error', 'Failed to read stream', {
+      safeLog.error(this.logger, 'Failed to read stream', {
         streamName,
         error,
       });
@@ -206,7 +245,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
 
       const { expectedStreamVersion = NO_CONCURRENCY_CHECK } = options;
 
-      safeLog(this.logger, 'debug', 'Appending to stream', {
+      safeLog.debug(this.logger, 'Appending to stream', {
         streamName,
         eventCount: events.length,
         eventTypes: events.map((e) => e.type),
@@ -227,7 +266,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       span.setAttribute('emmett.created_new_stream', result.createdNewStream);
       span.setStatus({ code: SpanStatusCode.OK });
 
-      safeLog(this.logger, 'debug', 'Append completed', {
+      safeLog.debug(this.logger, 'Append completed', {
         streamName,
         newVersion: result.nextExpectedStreamVersion.toString(),
         createdNewStream: result.createdNewStream,
@@ -239,13 +278,13 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       span.setStatus({ code: SpanStatusCode.ERROR });
 
       if (error instanceof ExpectedVersionConflictError) {
-        safeLog(this.logger, 'warn', 'Version conflict during append', {
+        safeLog.warn(this.logger, 'Version conflict during append', {
           streamName,
           expected: String(error.expected),
           actual: String(error.actual),
         });
       } else {
-        safeLog(this.logger, 'error', 'Failed to append to stream', {
+        safeLog.error(this.logger, 'Failed to append to stream', {
           streamName,
           error,
         });
@@ -285,7 +324,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       streamData?.version,
     );
 
-    safeLog(this.logger, 'debug', 'Read stream metadata', {
+    safeLog.debug(this.logger, 'Read stream metadata', {
       streamName,
       exists: streamExists,
       currentVersion: currentVersion === STREAM_DOES_NOT_EXIST ? 'none' : currentVersion.toString(),
@@ -350,7 +389,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       updatedAt: now,
     });
 
-    safeLog(this.logger, 'debug', 'Events written to transaction', {
+    safeLog.debug(this.logger, 'Events written to transaction', {
       streamName,
       count: events.length,
       newVersion,

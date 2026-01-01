@@ -8,14 +8,57 @@ import {
 } from '@event-driven-io/emmett';
 
 /**
- * Minimal logger interface compatible with Pino and other loggers.
- * All methods are optional to support varying logger implementations.
+ * Canonical Logger contract for the Emmett ecosystem.
+ *
+ * DO NOT MODIFY this interface without updating ALL packages in the ecosystem.
+ *
+ * This package defines the canonical Logger interface.
+ * Implementations (Pino, Winston, etc.) MUST adapt to this contract.
+ * This contract MUST NOT adapt to any specific implementation.
+ *
+ * Semantic Rules:
+ * - context (first parameter): ALWAYS structured data as Record<string, unknown>
+ * - message (second parameter): ALWAYS the human-readable log message
+ * - The order is NEVER inverted
+ * - The (message, data) form is NOT valid for this contract
+ * - Error objects MUST use the 'err' key (frozen semantic)
+ *
+ * @example
+ * ```typescript
+ * // Pino - native compatibility
+ * import pino from 'pino';
+ * const logger = pino();
+ * // logger.info({ orderId }, 'Order created') matches our contract
+ * ```
  */
 export interface Logger {
-  debug?(msg: string, data?: unknown): void;
-  info?(msg: string, data?: unknown): void;
-  warn?(msg: string, data?: unknown): void;
-  error?(msg: string, err?: unknown): void;
+  /**
+   * Log debug-level message with structured context.
+   * @param context - Structured data to include in the log entry
+   * @param message - Optional human-readable message
+   */
+  debug(context: Record<string, unknown>, message?: string): void;
+
+  /**
+   * Log info-level message with structured context.
+   * @param context - Structured data to include in the log entry
+   * @param message - Optional human-readable message
+   */
+  info(context: Record<string, unknown>, message?: string): void;
+
+  /**
+   * Log warn-level message with structured context.
+   * @param context - Structured data to include in the log entry
+   * @param message - Optional human-readable message
+   */
+  warn(context: Record<string, unknown>, message?: string): void;
+
+  /**
+   * Log error-level message with structured context.
+   * @param context - Structured data to include in the log entry (MUST use 'err' key for Error objects)
+   * @param message - Optional human-readable message
+   */
+  error(context: Record<string, unknown>, message?: string): void;
 }
 
 /**

@@ -1,6 +1,6 @@
 {
   "name": "@emmett-community/emmett-google-firestore",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Google Firestore event store implementation for Emmett",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

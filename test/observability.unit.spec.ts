@@ -55,22 +55,28 @@ describe('Observability', () => {
   });
 
   describe('Logger integration', () => {
-    it('should call logger.info on initialization', () => {
+    it('should call logger.info on initialization with (context, message) format', () => {
       const logger: Logger = {
         info: jest.fn(),
         debug: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
       };
 
       getFirestoreEventStore(firestore as unknown as Firestore, {
         observability: { logger },
       });
 
-      expect(logger.info).toHaveBeenCalledWith('FirestoreEventStore initialized', undefined);
+      // New format: (context, message)
+      expect(logger.info).toHaveBeenCalledWith({}, 'FirestoreEventStore initialized');
     });
 
-    it('should call logger.debug on readStream', async () => {
+    it('should call logger.debug on readStream with (context, message) format', async () => {
       const logger: Logger = {
         debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
       };
 
       const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
@@ -79,19 +85,23 @@ describe('Observability', () => {
 
       await eventStore.readStream('Test-Stream');
 
+      // New format: (context, message)
       expect(logger.debug).toHaveBeenCalledWith(
-        'Reading stream',
         expect.objectContaining({ streamName: 'Test-Stream' }),
+        'Reading stream',
       );
       expect(logger.debug).toHaveBeenCalledWith(
-        'Stream read completed',
         expect.objectContaining({ streamName: 'Test-Stream', eventCount: 0 }),
+        'Stream read completed',
       );
     });
 
-    it('should call logger.debug on appendToStream', async () => {
+    it('should call logger.debug on appendToStream with (context, message) format', async () => {
       const logger: Logger = {
         debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
       };
 
       const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
@@ -102,41 +112,44 @@ describe('Observability', () => {
         { type: 'TestEvent', data: { value: 1 } },
       ]);
 
+      // New format: (context, message)
       expect(logger.debug).toHaveBeenCalledWith(
-        'Appending to stream',
         expect.objectContaining({
           streamName: 'Test-Stream',
           eventCount: 1,
           eventTypes: ['TestEvent'],
         }),
+        'Appending to stream',
       );
       expect(logger.debug).toHaveBeenCalledWith(
-        'Read stream metadata',
         expect.objectContaining({
           streamName: 'Test-Stream',
           exists: false,
         }),
+        'Read stream metadata',
       );
       expect(logger.debug).toHaveBeenCalledWith(
-        'Events written to transaction',
         expect.objectContaining({
           streamName: 'Test-Stream',
           count: 1,
         }),
+        'Events written to transaction',
       );
       expect(logger.debug).toHaveBeenCalledWith(
-        'Append completed',
         expect.objectContaining({
           streamName: 'Test-Stream',
           createdNewStream: true,
         }),
+        'Append completed',
       );
     });
 
-    it('should call logger.warn on version conflict', async () => {
+    it('should call logger.warn on version conflict with (context, message) format', async () => {
       const logger: Logger = {
         debug: jest.fn(),
+        info: jest.fn(),
         warn: jest.fn(),
+        error: jest.fn(),
       };
 
       const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
@@ -157,15 +170,18 @@ describe('Observability', () => {
         ),
       ).rejects.toThrow();
 
+      // New format: (context, message)
       expect(logger.warn).toHaveBeenCalledWith(
-        'Version conflict during append',
         expect.objectContaining({ streamName: 'Test-Stream' }),
+        'Version conflict during append',
       );
     });
 
-    it('should call logger.error on failure', async () => {
+    it('should call logger.error on failure with (context, message) format', async () => {
       const logger: Logger = {
         debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
         error: jest.fn(),
       };
 
@@ -190,52 +206,19 @@ describe('Observability', () => {
 
       await expect(eventStore.readStream('Test-Stream')).rejects.toThrow('Firestore error');
 
+      // New format: (context, message)
       expect(logger.error).toHaveBeenCalledWith(
-        'Failed to read stream',
         expect.objectContaining({ streamName: 'Test-Stream' }),
+        'Failed to read stream',
       );
-    });
-
-    it('should work with partial logger implementation (only info)', async () => {
-      const logger: Logger = {
-        info: jest.fn(),
-        // debug, warn, error not implemented
-      };
-
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
-
-      // Should not throw even though debug is called internally
-      await eventStore.appendToStream('Test-Stream', [
-        { type: 'TestEvent', data: { value: 1 } },
-      ]);
-
-      expect(logger.info).toHaveBeenCalled();
-    });
-
-    it('should work with partial logger implementation (only debug)', async () => {
-      const logger: Logger = {
-        debug: jest.fn(),
-        // info, warn, error not implemented
-      };
-
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
-
-      // Should not throw
-      await eventStore.appendToStream('Test-Stream', [
-        { type: 'TestEvent', data: { value: 1 } },
-      ]);
-
-      expect(logger.debug).toHaveBeenCalled();
     });
 
     it('should never log event payloads (data)', async () => {
       const logger: Logger = {
         info: jest.fn(),
         debug: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
       };
 
       const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
