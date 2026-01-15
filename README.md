@@ -147,6 +147,15 @@ const eventStore = getFirestoreEventStore(firestore, {
 });
 ```
 
+### `asEventStore(firestoreEventStore)`
+
+Wraps a `FirestoreEventStore` instance in Emmett's `EventStore` interface so it can be passed into helpers that expect the canonical contract (CommandHandlers, workflows, etc.).
+
+```typescript
+const firestoreEventStore = getFirestoreEventStore(firestore);
+const eventStore = asEventStore(firestoreEventStore);
+```
+
 ### `eventStore.appendToStream(streamName, events, options?)`
 
 Appends events to a stream.
@@ -560,16 +569,6 @@ import type {
 - **Emmett**: ^0.39.0
 - **Firestore**: ^7.10.0
 
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
 ## Development
 
 ```bash
@@ -588,6 +587,16 @@ npm run lint
 # Format
 npm run format
 ```
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
 
 ## License
 
@@ -611,3 +620,7 @@ MIT © Emmett Community
 - Built for the [Emmett](https://event-driven-io.github.io/emmett/) framework by [Oskar Dudycz](https://github.com/oskardudycz)
 - Inspired by [emmett-mongodb](https://github.com/event-driven-io/emmett/tree/main/src/packages/emmett-mongodb)
 - Part of the [Emmett Community](https://github.com/emmett-community)
+
+---
+
+Made with ❤️ by the Emmett Community

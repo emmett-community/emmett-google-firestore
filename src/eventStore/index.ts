@@ -1,5 +1,5 @@
 // Main EventStore exports
-export { getFirestoreEventStore } from './firestoreEventStore';
+export { getFirestoreEventStore, asEventStore } from './firestoreEventStore';
 
 // Types and interfaces
 export type {

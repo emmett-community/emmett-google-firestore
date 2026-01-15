@@ -224,6 +224,7 @@ describe('FirestoreEventStore E2E Tests', () => {
       await eventStore.appendToStream(streamName, events);
 
       const readEvents = await eventStore.readStream<UserEvent>(streamName, {
+        from: BigInt(0),
         maxCount: 5,
       });
 

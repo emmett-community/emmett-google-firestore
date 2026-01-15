@@ -3,7 +3,10 @@ import {
   IllegalStateError,
 } from '@event-driven-io/emmett';
 import { Firestore } from '@google-cloud/firestore';
-import { getFirestoreEventStore } from '@emmett-community/emmett-google-firestore';
+import {
+  asEventStore,
+  getFirestoreEventStore,
+} from '@emmett-community/emmett-google-firestore';
 import {
   createOpenApiValidatorOptions,
   getApplication,
@@ -17,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ShoppingCartError } from './shoppingCarts/businessLogic';
 import type { ShoppingCartConfirmed } from './shoppingCarts/shoppingCart';
+import { createLogger } from '@emmett-community/emmett-observability';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +28,13 @@ const __dirname = path.dirname(__filename);
 // Configuration
 const FIRESTORE_PROJECT_ID = process.env.FIRESTORE_PROJECT_ID || 'demo-project';
 const FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST;
+
+// Initialize Logger
+const logger = createLogger({
+  serviceName: 'shopping-cart',
+  environment: process.env.NODE_ENV,
+  logLevel: process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error',
+});
 
 // Initialize Firestore
 const firestore = new Firestore({
@@ -38,7 +49,10 @@ const firestore = new Firestore({
 });
 
 // Create event store
-const eventStore = getFirestoreEventStore(firestore);
+const firestoreEventStore = getFirestoreEventStore(firestore, {
+  observability: { logger },
+});
+const eventStore = asEventStore(firestoreEventStore);
 const messageBus = getInMemoryMessageBus();
 const getUnitPrice = (_productId: string) => Promise.resolve(100);
 const getCurrentTime = () => new Date();
@@ -109,6 +123,7 @@ const mapErrorToProblemDetails: ErrorToProblemDetailsMapping = (error) => {
 
 export const app: Application = await getApplication({
   mapError: mapErrorToProblemDetails,
+  observability: { logger },
   openApiValidator: createOpenApiValidatorOptions(openApiFilePath, {
       validateRequests: true,
       validateResponses: process.env.NODE_ENV !== 'production',
@@ -124,16 +139,26 @@ export const app: Application = await getApplication({
   ),
 });
 
+const gracefulShutdown = async (signal: string) => {
+  logger.info({ signal }, 'Shutting down gracefully');  
+  await firestore.terminate();  
+  process.exit(0);
+};
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT ?? 3000);
   startAPI(app, { port });
-  console.log(`🚀 Shopping Cart API listening on http://localhost:${port}`);
-  console.log('OpenAPI doc available at /api-docs/openapi.yml');
+  logger.info(
+    {
+      port,
+      apiDocsUrl: '/api-docs/openapi.yml',
+      firebaseEmulatorUrl: 'http://localhost:4000',
+      pubsubEmulatorUrl: 'http://localhost:4001',
+    },
+    'Shopping Cart API started',
+  );
 }
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\nShutting down gracefully...');
-  await firestore.terminate();
-  process.exit(0);
-});
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

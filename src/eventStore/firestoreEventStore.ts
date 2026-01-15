@@ -1,5 +1,12 @@
 import type { Firestore, Transaction, Timestamp } from '@google-cloud/firestore';
-import type { Event } from '@event-driven-io/emmett';
+import type {
+  AggregateStreamOptions,
+  AggregateStreamResult,
+  Event,
+  EventStore,
+  ReadStreamOptions as EmmettReadStreamOptions,
+  ReadStreamResult,
+} from '@event-driven-io/emmett';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import type {
   AppendToStreamOptions,
@@ -10,6 +17,7 @@ import type {
   FirestoreEventStore,
   FirestoreEventStoreOptions,
   FirestoreReadEvent,
+  FirestoreReadEventMetadata,
   Logger,
   ReadStreamOptions,
   StreamMetadata,
@@ -114,21 +122,26 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
    */
   async readStream<EventType extends Event>(
     streamName: string,
-    options: ReadStreamOptions = {},
+    options?: ReadStreamOptions,
   ): Promise<FirestoreReadEvent<EventType>[]> {
     const span = tracer.startSpan('emmett.firestore.read_stream', {
       attributes: { 'emmett.stream_name': streamName },
     });
 
     try {
+      const from = options && 'from' in options ? options.from : undefined;
+      const to = options && 'to' in options ? options.to : undefined;
+      const maxCountLimit =
+        options && 'maxCount' in options && options.maxCount !== undefined
+          ? Number(options.maxCount)
+          : undefined;
+
       safeLog.debug(this.logger, 'Reading stream', {
         streamName,
-        from: options.from?.toString(),
-        to: options.to?.toString(),
-        maxCount: options.maxCount,
+        from: from?.toString(),
+        to: to?.toString(),
+        maxCount: maxCountLimit,
       });
-
-      const { from, to, maxCount } = options;
 
       // Reference to events subcollection
       let query = this.firestore
@@ -144,8 +157,8 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       if (to !== undefined) {
         query = query.where('streamVersion', '<=', Number(to));
       }
-      if (maxCount !== undefined && maxCount > 0) {
-        query = query.limit(maxCount);
+      if (maxCountLimit !== undefined && maxCountLimit > 0) {
+        query = query.limit(maxCountLimit);
       }
 
       // Execute query
@@ -401,6 +414,76 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       createdNewStream: !streamExists,
     };
   }
+}
+
+/**
+ * Creates an Emmett-compatible `EventStore` wrapper around a Firestore event store.
+ */
+function normalizeReadOptions(
+  options?: EmmettReadStreamOptions<bigint>,
+): ReadStreamOptions | undefined {
+  if (!options) return undefined;
+
+  const result: ReadStreamOptions = {};
+
+  if ('from' in options) {
+    result.from = options.from;
+    if ('maxCount' in options && options.maxCount !== undefined) {
+      result.maxCount = Number(options.maxCount);
+    }
+  }
+
+  if ('to' in options) {
+    result.to = options.to;
+  }
+
+  return result;
+}
+
+export function asEventStore(
+  store: FirestoreEventStore,
+): EventStore<FirestoreReadEventMetadata> {
+  async function readStream<EventType extends Event>(
+    streamName: string,
+    options?: EmmettReadStreamOptions<bigint>,
+  ): Promise<ReadStreamResult<EventType, FirestoreReadEventMetadata>> {
+    const events = await store.readStream<EventType>(streamName, normalizeReadOptions(options));
+    const streamExists = events.length > 0;
+    const currentStreamVersion = streamExists
+      ? events[events.length - 1].metadata.streamVersion
+      : BigInt(0);
+
+    return {
+      currentStreamVersion,
+      events,
+      streamExists,
+    };
+  }
+
+  function aggregateStream<State, EventType extends Event>(
+    streamName: string,
+    options: AggregateStreamOptions<State, EventType, FirestoreReadEventMetadata>,
+  ): Promise<AggregateStreamResult<State, bigint>> {
+    return store.aggregateStream(streamName, {
+      evolve: options.evolve,
+      initialState: options.initialState,
+      read: normalizeReadOptions(options.read),
+    });
+  }
+
+  function appendToStream<EventType extends Event>(
+    streamName: string,
+    events: EventType[],
+    options?: AppendToStreamOptions,
+  ): Promise<AppendToStreamResult> {
+    return store.appendToStream(streamName, events, options);
+  }
+
+  return {
+    readStream,
+    aggregateStream,
+    appendToStream,
+  };
 }
 
 /**

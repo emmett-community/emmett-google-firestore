@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-01-15
+
+### Added
+
+- `asEventStore` helper to expose a `FirestoreEventStore` instance as an `@event-driven-io/emmett` `EventStore` so downstream helpers get the canonical interface.
+- Updated shopping cart example and tests to build against the adaptor and demonstrate wiring through Emmett helpers (`examples/shopping-cart/src/index.ts`, `examples/shopping-cart/test/handlers.*.spec.ts`).
+
+### Changed
+
+- Re-aligned `ReadStreamOptions` with the existing public contract and kept the Firestore implementation compatible while normalizing bigint-friendly options for internal use, avoiding breaking changes for existing apps.
+- Documented the new helper in the README and fixed the `maxCount` usage in the E2E test so tooling validates cleanly.
+
 ## [0.4.0] - 2025-12-31
 
 ### Changed
@@ -64,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shopping cart example application
 - Documentation
 
+[0.5.0]: https://github.com/emmett-community/emmett-google-firestore/releases/tag/0.5.0
 [0.4.0]: https://github.com/emmett-community/emmett-google-firestore/releases/tag/0.4.0
 [0.3.0]: https://github.com/emmett-community/emmett-google-firestore/releases/tag/0.3.0
 [0.2.0]: https://github.com/emmett-community/emmett-google-firestore/releases/tag/0.2.0
