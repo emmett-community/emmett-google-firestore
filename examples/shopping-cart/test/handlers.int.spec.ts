@@ -1,6 +1,9 @@
 import { getInMemoryMessageBus } from '@event-driven-io/emmett';
 import type { Firestore } from '@google-cloud/firestore';
-import { getFirestoreEventStore } from '@emmett-community/emmett-google-firestore';
+import {
+  asEventStore,
+  getFirestoreEventStore,
+} from '@emmett-community/emmett-google-firestore';
 import {
   ApiSpecification,
   createOpenApiValidatorOptions,
@@ -234,7 +237,10 @@ void describe('ShoppingCart integration (OpenAPI)', () => {
   const firestore = new InMemoryFirestore();
 
   const given = ApiSpecification.for<ShoppingCartEvent>(
-    () => getFirestoreEventStore(firestore as unknown as Firestore),
+    () =>
+      asEventStore(
+        getFirestoreEventStore(firestore as unknown as Firestore),
+      ),
     (eventStore) => {
       return getApplication({
         openApiValidator: createOpenApiValidatorOptions(

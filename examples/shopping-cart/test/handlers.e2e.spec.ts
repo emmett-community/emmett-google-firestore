@@ -1,6 +1,9 @@
 import { getInMemoryMessageBus } from '@event-driven-io/emmett';
 import { Firestore } from '@google-cloud/firestore';
-import { getFirestoreEventStore } from '@emmett-community/emmett-google-firestore';
+import {
+  asEventStore,
+  getFirestoreEventStore,
+} from '@emmett-community/emmett-google-firestore';
 import {
   ApiE2ESpecification,
   createOpenApiValidatorOptions,
@@ -85,7 +88,8 @@ void describe('ShoppingCart e2e (OpenAPI)', () => {
       },
     });
 
-    const eventStore = getFirestoreEventStore(firestore);
+    const firestoreEventStore = getFirestoreEventStore(firestore);
+    const eventStore = asEventStore(firestoreEventStore);
     const messageBus = getInMemoryMessageBus();
     const getUnitPrice = (_productId: string) => Promise.resolve(100);
     const getCurrentTime = () => new Date();

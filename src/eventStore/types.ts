@@ -99,6 +99,7 @@ export interface AppendToStreamResult {
 
 /**
  * Options for reading events from a stream
+ * Reuses the canonical `ReadStreamOptions` shape from the Emmett core types.
  */
 export interface ReadStreamOptions {
   from?: bigint;
