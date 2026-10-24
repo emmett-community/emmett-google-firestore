@@ -122,6 +122,47 @@ describe('FirestoreEventStore E2E Tests', () => {
       expect(eventsA[0].metadata.globalPosition).toBe(BigInt(0));
       expect(eventsB[0].metadata.globalPosition).toBe(BigInt(1));
     });
+
+    it('should read events of every stream in global order, after a position', async () => {
+      const registered = (id: string): UserEvent => ({
+        type: 'UserRegistered',
+        data: { userId: id, email: `${id}@example.com`, name: id },
+      });
+
+      await eventStore.appendToStream('User-A', [registered('a1'), registered('a2')]);
+      await eventStore.appendToStream('User-B', [registered('b1')]);
+      await eventStore.appendToStream('User-A', [registered('a3')]);
+
+      const all = await eventStore.readByGlobalPosition<UserEvent>();
+      expect(all.map((e) => e.metadata.globalPosition)).toEqual([
+        BigInt(0),
+        BigInt(1),
+        BigInt(2),
+        BigInt(3),
+      ]);
+      expect(all.map((e) => e.metadata.streamName)).toEqual(['User-A', 'User-A', 'User-B', 'User-A']);
+
+      const rest = await eventStore.readByGlobalPosition<UserEvent>({
+        after: BigInt(1),
+        maxCount: 2,
+      });
+      expect(rest.map((e) => e.metadata.globalPosition)).toEqual([BigInt(2), BigInt(3)]);
+    });
+
+    it('should return the same messageId when reading by stream and by global position', async () => {
+      await eventStore.appendToStream('User-A', [
+        {
+          type: 'UserRegistered',
+          data: { userId: 'A', email: 'a@example.com', name: 'A' },
+        } as UserEvent,
+      ]);
+
+      const [byStream] = await eventStore.readStream<UserEvent>('User-A');
+      const [byPosition] = await eventStore.readByGlobalPosition<UserEvent>();
+
+      expect(byStream.metadata.messageId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(byPosition.metadata.messageId).toBe(byStream.metadata.messageId);
+    });
   });
 
   describe('readStream', () => {

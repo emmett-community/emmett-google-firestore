@@ -10,6 +10,7 @@ export type {
   AppendToStreamOptions,
   AppendToStreamResult,
   ReadStreamOptions,
+  ReadByGlobalPositionOptions,
   ExpectedStreamVersion,
   CollectionConfig,
   StreamMetadata,

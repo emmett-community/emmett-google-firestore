@@ -1,6 +1,6 @@
 {
   "name": "@emmett-community/emmett-google-firestore",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Google Firestore event store implementation for Emmett",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -14,6 +14,16 @@
       "require": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      }
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/testing.d.mts",
+        "default": "./dist/testing.mjs"
+      },
+      "require": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
       }
     }
   },

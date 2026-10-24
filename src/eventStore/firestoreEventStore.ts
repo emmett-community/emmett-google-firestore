@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Firestore, Transaction, Timestamp } from '@google-cloud/firestore';
 import type {
   AggregateStreamOptions,
@@ -19,6 +20,7 @@ import type {
   FirestoreReadEvent,
   FirestoreReadEventMetadata,
   Logger,
+  ReadByGlobalPositionOptions,
   ReadStreamOptions,
   StreamMetadata,
 } from './types';
@@ -86,6 +88,30 @@ const safeLog = {
     logger.error(normalizeErrorContext(error), msg);
   },
 };
+
+/**
+ * @internal - NOT part of public API
+ * Maps a stored event document to a read event. Events written before `messageId` existed
+ * get a stable id derived from stream name and version, so consumers can still deduplicate.
+ */
+function toReadEvent<EventType extends Event>(
+  streamName: string,
+  data: EventDocument,
+): FirestoreReadEvent<EventType> {
+  return {
+    type: data.type,
+    data: data.data,
+    metadata: {
+      ...data.metadata,
+      messageId: data.messageId ?? `${streamName}:${data.streamVersion}`,
+      streamName,
+      streamVersion: BigInt(data.streamVersion),
+      streamPosition: BigInt(data.streamVersion),
+      globalPosition: BigInt(data.globalPosition),
+      timestamp: timestampToDate(data.timestamp),
+    },
+  } as FirestoreReadEvent<EventType>;
+}
 
 const DEFAULT_COLLECTIONS: CollectionConfig = {
   streams: 'streams',
@@ -165,21 +191,9 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       const snapshot = await query.get();
 
       // Transform Firestore documents to events
-      const events = snapshot.docs.map((doc) => {
-        const data = doc.data() as EventDocument;
-        return {
-          type: data.type,
-          data: data.data,
-          metadata: {
-            ...data.metadata,
-            streamName,
-            streamVersion: BigInt(data.streamVersion),
-            streamPosition: BigInt(data.streamVersion),
-            globalPosition: BigInt(data.globalPosition),
-            timestamp: timestampToDate(data.timestamp),
-          },
-        } as FirestoreReadEvent<EventType>;
-      });
+      const events = snapshot.docs.map((doc) =>
+        toReadEvent<EventType>(streamName, doc.data() as EventDocument),
+      );
 
       span.setAttribute('emmett.event_count', events.length);
       span.setStatus({ code: SpanStatusCode.OK });
@@ -198,6 +212,57 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
         streamName,
         error,
       });
+
+      throw error;
+    } finally {
+      span.end();
+    }
+  }
+
+  /**
+   * Read events of every stream in global order.
+   *
+   * Uses a collection group query over `events`, so it needs a collection group index on
+   * `globalPosition` (see the README for the index definition).
+   */
+  async readByGlobalPosition<EventType extends Event>(
+    options: ReadByGlobalPositionOptions = {},
+  ): Promise<FirestoreReadEvent<EventType>[]> {
+    const span = tracer.startSpan('emmett.firestore.read_by_global_position');
+
+    try {
+      const { after, maxCount } = options;
+
+      safeLog.debug(this.logger, 'Reading by global position', {
+        after: after?.toString(),
+        maxCount,
+      });
+
+      let query = this.firestore.collectionGroup('events').orderBy('globalPosition', 'asc');
+
+      if (after !== undefined) {
+        query = query.where('globalPosition', '>', Number(after));
+      }
+      if (maxCount !== undefined && maxCount > 0) {
+        query = query.limit(maxCount);
+      }
+
+      const snapshot = await query.get();
+
+      // events/{version} lives under streams/{streamName}, so the stream name is the grandparent id
+      const events = snapshot.docs.map((doc) =>
+        toReadEvent<EventType>(doc.ref.parent.parent!.id, doc.data() as EventDocument),
+      );
+
+      span.setAttribute('emmett.event_count', events.length);
+      span.setStatus({ code: SpanStatusCode.OK });
+
+      return events;
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR });
+
+      safeLog.error(this.logger, 'Failed to read by global position', { error });
 
       throw error;
     } finally {
@@ -381,6 +446,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
         timestamp: now,
         globalPosition: globalPosition++,
         streamVersion: eventVersion,
+        messageId: randomUUID(),
       };
 
       transaction.set(eventRef, eventDocument);

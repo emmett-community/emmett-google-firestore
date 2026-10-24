@@ -126,6 +126,11 @@ export interface EventDocument {
   timestamp: Timestamp;
   globalPosition: number;
   streamVersion: number;
+  /**
+   * Unique id of the event (UUID). Absent on events written before it was introduced;
+   * reads derive a stable id for those.
+   */
+  messageId?: string;
 }
 
 /**
@@ -135,6 +140,17 @@ export interface FirestoreReadEventMetadata extends ReadEventMetadataWithGlobalP
   streamName: string;
   streamVersion: bigint;
   timestamp: Date;
+  messageId: string;
+}
+
+/**
+ * Options for reading events in global order
+ */
+export interface ReadByGlobalPositionOptions {
+  /** Return only events with a global position greater than this one. Defaults to the start. */
+  after?: bigint;
+  /** Maximum number of events to return. */
+  maxCount?: number;
 }
 
 /**
@@ -184,6 +200,14 @@ export interface FirestoreEventStore {
   ): Promise<FirestoreReadEvent<EventType>[]>;
 
   /**
+   * Read events of every stream in global order. Needs the collection group index
+   * on `events.globalPosition` (see the README for the index definition).
+   */
+  readByGlobalPosition<EventType extends Event>(
+    options?: ReadByGlobalPositionOptions,
+  ): Promise<FirestoreReadEvent<EventType>[]>;
+
+  /**
    * Aggregate stream by applying events to state
    */
   aggregateStream<State, EventType extends Event>(
@@ -210,9 +234,15 @@ export interface FirestoreEventStore {
 }
 
 /**
- * Error thrown when expected version doesn't match current version
+ * Error thrown when expected version doesn't match current version.
+ *
+ * Carries HTTP status 412 (Precondition Failed) in `statusCode` and, following the Emmett
+ * error convention, in `errorCode`, so an HTTP layer can map it without importing this class.
  */
 export class ExpectedVersionConflictError extends Error {
+  public readonly statusCode = 412;
+  public readonly errorCode = 412;
+
   constructor(
     public readonly streamName: string,
     public readonly expected: ExpectedStreamVersion,

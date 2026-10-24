@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - Unreleased
+
+### Added
+
+- `messageId` (a UUID) is stored on every appended event and returned in the read metadata. Events written before this release get a stable derived id (`<streamName>:<streamVersion>`).
+- `readByGlobalPosition({ after, maxCount })` reads events of every stream in global order, backed by a collection group index on `events.globalPosition` (the index definition is in the README).
+- `ExpectedVersionConflictError` carries `statusCode` and `errorCode` 412 so an HTTP layer can map it.
+- `@emmett-community/emmett-google-firestore/testing` entry exporting `InMemoryFirestore`, now with `collectionGroup` support.
+
 ## [0.5.0] - 2026-01-15
 
 ### Added
