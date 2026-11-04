@@ -88,7 +88,7 @@ Events are stored using a **subcollection pattern** for optimal performance:
 - ✅ No document size limits (Firestore 1MB limit doesn't apply to subcollections)
 - ✅ Natural isolation per stream
 - ✅ Automatic ordering (document IDs sort naturally)
-- ✅ No composite indexes needed
+- ✅ No composite indexes needed (only `readByGlobalPosition` needs a collection group index, see its section)
 - ✅ Efficient queries
 
 ### Optimistic Concurrency
@@ -211,6 +211,42 @@ const events = await eventStore.readStream('User-123', {
 const events = await eventStore.readStream('User-123', {
   maxCount: 100
 });
+```
+
+### `eventStore.readByGlobalPosition(options?)`
+
+Reads events of every stream in global order.
+
+**Parameters:**
+
+- `options`: Optional read options
+  - `after`: Return only events with a global position greater than this one (defaults to the start)
+  - `maxCount`: Maximum number of events to read
+
+```typescript
+// Read every event of every stream
+const all = await eventStore.readByGlobalPosition();
+
+// Read what happened after a known position
+const next = await eventStore.readByGlobalPosition({ after: 10n, maxCount: 100 });
+```
+
+**Required Firestore index:** this method runs a collection group query over `events` ordered by `globalPosition`, so a real Firestore project needs a collection group index on that field. Without it the query fails with `FAILED_PRECONDITION: The query requires an index`. The Firestore Emulator does not enforce indexes, so the error only shows up against a real project. Add this to your `firestore.indexes.json` and deploy it with `firebase deploy --only firestore:indexes`:
+
+```json
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "events",
+      "fieldPath": "globalPosition",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    }
+  ]
+}
 ```
 
 ### `eventStore.aggregateStream(streamName, evolve, initialState, options?)`
