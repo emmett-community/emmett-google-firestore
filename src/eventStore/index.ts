@@ -4,11 +4,13 @@ export { getFirestoreEventStore, asEventStore } from './firestoreEventStore';
 // Types and interfaces
 export type {
   FirestoreEventStore,
+  FirestoreEventStoreHooks,
   FirestoreEventStoreOptions,
   FirestoreReadEvent,
   FirestoreReadEventMetadata,
   AppendToStreamOptions,
   AppendToStreamResult,
+  AppendedEvent,
   ReadStreamOptions,
   ReadByGlobalPositionOptions,
   ExpectedStreamVersion,

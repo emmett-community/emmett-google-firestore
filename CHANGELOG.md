@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-07
+
+### Added
+
+- `hooks.beforeCommit` option: runs inside the transaction of an append and receives the transaction and the appended events, so a caller can add writes that commit atomically with the events.
+- `appendToStream` returns `messageIds`, the `messageId` stored on each event, in the order of the events given.
+
+### Fixed
+
+- `InMemoryFirestore` buffers the writes of a transaction and applies them on commit, like Firestore. They used to apply at once, so a transaction that failed left its writes behind.
+
 ## [0.6.0] - 2026-11-04
 
 ### Added
