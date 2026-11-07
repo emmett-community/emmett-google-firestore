@@ -219,12 +219,21 @@ class Query {
 }
 
 class InMemoryTransaction {
+  private readonly writes: Array<() => void> = [];
+
   async get(docRef: DocumentReference): Promise<DocumentSnapshot> {
     return new DocumentSnapshot(docRef, docRef.getRecord());
   }
 
+  /** Buffered like in Firestore: the write applies only when the transaction commits. */
   set(docRef: DocumentReference, data: DocumentData): void {
-    docRef.setData(data);
+    this.writes.push(() => docRef.setData(data));
+  }
+
+  commit(): void {
+    for (const write of this.writes) {
+      write();
+    }
   }
 }
 
@@ -290,7 +299,12 @@ export class InMemoryFirestore {
   }
 
   async runTransaction<T>(updateFunction: (transaction: InMemoryTransaction) => Promise<T>): Promise<T> {
-    const run = async () => updateFunction(new InMemoryTransaction());
+    const run = async () => {
+      const transaction = new InMemoryTransaction();
+      const result = await updateFunction(transaction);
+      transaction.commit();
+      return result;
+    };
     const resultPromise = this.transactionChain.then(run, run);
     this.transactionChain = resultPromise.then(
       () => undefined,

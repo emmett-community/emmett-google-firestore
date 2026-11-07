@@ -5,13 +5,16 @@ import {
   getFirestoreEventStore,
 } from '@emmett-community/emmett-google-firestore';
 import {
-  ApiE2ESpecification,
   createOpenApiValidatorOptions,
-  expectResponse,
   getApplication,
+  lazyApplication,
   type ImportedHandlerModules,
-  type TestRequest,
 } from '@emmett-community/emmett-expressjs-with-openapi';
+import {
+  ApiE2ESpecification,
+  expectResponse,
+  type TestRequest,
+} from '@event-driven-io/emmett-expressjs';
 import { GenericContainer, Wait } from 'testcontainers';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
@@ -97,26 +100,28 @@ void describe('ShoppingCart e2e (OpenAPI)', () => {
     given = ApiE2ESpecification.for(
       () => eventStore,
       () =>
-        getApplication({
-          openApiValidator: createOpenApiValidatorOptions(
-            path.join(__dirname, '../src/openapi.yml'),
-            {
-              validateRequests: true,
-              validateSecurity: true,
-              validateResponses: false,
-              operationHandlers: path.join(__dirname, '../src/handlers'),
-              initializeHandlers: async (handlers?: ImportedHandlerModules) => {
-                // Framework auto-imports handler modules!
-                handlers!.shoppingCarts.initializeHandlers(
-                  eventStore,
-                  messageBus,
-                  getUnitPrice,
-                  getCurrentTime,
-                );
+        lazyApplication(
+          getApplication({
+            openApiValidator: createOpenApiValidatorOptions(
+              path.join(__dirname, '../src/openapi.yml'),
+              {
+                validateRequests: true,
+                validateSecurity: true,
+                validateResponses: false,
+                operationHandlers: path.join(__dirname, '../src/handlers'),
+                initializeHandlers: async (handlers?: ImportedHandlerModules) => {
+                  // Framework auto-imports handler modules!
+                  handlers!.shoppingCarts.initializeHandlers(
+                    eventStore,
+                    messageBus,
+                    getUnitPrice,
+                    getCurrentTime,
+                  );
+                },
               },
-            },
-          ),
-        }),
+            ),
+          }),
+        ),
     );
   });
 

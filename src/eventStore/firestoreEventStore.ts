@@ -12,10 +12,12 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 import type {
   AppendToStreamOptions,
   AppendToStreamResult,
+  AppendedEvent,
   CollectionConfig,
   EventDocument,
   ExpectedStreamVersion,
   FirestoreEventStore,
+  FirestoreEventStoreHooks,
   FirestoreEventStoreOptions,
   FirestoreReadEvent,
   FirestoreReadEventMetadata,
@@ -129,11 +131,13 @@ const DEFAULT_COLLECTIONS: CollectionConfig = {
 export class FirestoreEventStoreImpl implements FirestoreEventStore {
   public readonly collections: CollectionConfig;
   private readonly logger: Logger | undefined;
+  private readonly hooks: FirestoreEventStoreHooks;
 
   constructor(
     public readonly firestore: Firestore,
     options: FirestoreEventStoreOptions = {},
   ) {
+    this.hooks = options.hooks ?? {};
     this.collections = {
       ...DEFAULT_COLLECTIONS,
       ...options.collections,
@@ -431,6 +435,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
     // 5. Append events to subcollection
     const TimestampClass = this.firestore.constructor as unknown as { Timestamp: typeof Timestamp };
     const now = TimestampClass.Timestamp.now();
+    const appendedEvents: AppendedEvent[] = [];
 
     events.forEach((event, index) => {
       const eventVersion = baseVersion + 1 + index;
@@ -439,6 +444,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
         .doc(padVersion(eventVersion));
 
       const metadata = (event as { metadata?: Record<string, unknown> }).metadata;
+      const messageId = randomUUID();
       const eventDocument: EventDocument = {
         type: event.type,
         data: event.data,
@@ -446,10 +452,20 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
         timestamp: now,
         globalPosition: globalPosition++,
         streamVersion: eventVersion,
-        messageId: randomUUID(),
+        messageId,
       };
 
       transaction.set(eventRef, eventDocument);
+      appendedEvents.push({
+        type: eventDocument.type,
+        data: eventDocument.data,
+        ...(metadata && { metadata }),
+        messageId,
+        streamName,
+        streamVersion: eventVersion,
+        globalPosition: eventDocument.globalPosition,
+        timestamp: now,
+      });
     });
 
     // 6. Update stream metadata
@@ -474,10 +490,14 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       newVersion,
     });
 
-    // 8. Return result
+    // 8. Let the hook add its own writes to this transaction
+    await this.hooks.beforeCommit?.(transaction, appendedEvents);
+
+    // 9. Return result
     return {
       nextExpectedStreamVersion: BigInt(newVersion),
       createdNewStream: !streamExists,
+      messageIds: appendedEvents.map((event) => event.messageId),
     };
   }
 }

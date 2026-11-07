@@ -1,4 +1,4 @@
-import type { Firestore, Timestamp } from '@google-cloud/firestore';
+import type { Firestore, Timestamp, Transaction } from '@google-cloud/firestore';
 import type { Event, ReadEvent, ReadEventMetadataWithGlobalPosition } from '@event-driven-io/emmett';
 import {
   STREAM_DOES_NOT_EXIST,
@@ -95,6 +95,8 @@ export interface AppendToStreamOptions {
 export interface AppendToStreamResult {
   nextExpectedStreamVersion: bigint;
   createdNewStream: boolean;
+  /** The `messageId` set on each appended event, in the order of the events given. */
+  messageIds: string[];
 }
 
 /**
@@ -170,11 +172,41 @@ export interface CollectionConfig {
 }
 
 /**
+ * An event as it is being appended, handed to the store hooks
+ */
+export interface AppendedEvent {
+  type: string;
+  data: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  messageId: string;
+  streamName: string;
+  streamVersion: number;
+  globalPosition: number;
+  timestamp: Timestamp;
+}
+
+/**
+ * Extension points of the event store
+ */
+export interface FirestoreEventStoreHooks {
+  /**
+   * Runs inside the transaction of an append, after the events are written to it. Writes made
+   * on `transaction` commit together with the events, and an error aborts the append.
+   *
+   * Firestore can run a transaction more than once when it conflicts, so the hook can run more
+   * than once for one append: it must only write to the transaction, with no other side effect.
+   * It must not read, because Firestore rejects a read after a write in a transaction.
+   */
+  beforeCommit?: (transaction: Transaction, events: AppendedEvent[]) => void | Promise<void>;
+}
+
+/**
  * Firestore event store options
  */
 export interface FirestoreEventStoreOptions {
   collections?: Partial<CollectionConfig>;
   observability?: ObservabilityOptions;
+  hooks?: FirestoreEventStoreHooks;
 }
 
 /**

@@ -135,6 +135,7 @@ Creates a Firestore event store instance.
   - `collections`: Custom collection names
     - `streams`: Stream collection name (default: `"streams"`)
     - `counters`: Counter collection name (default: `"_counters"`)
+  - `hooks`: Extension points (see [Append hooks](#append-hooks))
 
 **Returns:** `FirestoreEventStore`
 
@@ -146,6 +147,24 @@ const eventStore = getFirestoreEventStore(firestore, {
   },
 });
 ```
+
+### Append hooks
+
+`hooks.beforeCommit` runs inside the transaction of an append, after the events are written to it. It receives the transaction and the appended events, each with its `messageId`, stream and positions. What it writes on the transaction commits together with the events, and an error it throws aborts the append. This is how to keep something atomic with the events, such as a transactional outbox.
+
+```typescript
+const eventStore = getFirestoreEventStore(firestore, {
+  hooks: {
+    beforeCommit: (transaction, events) => {
+      for (const event of events) {
+        transaction.set(firestore.collection('audit').doc(event.messageId), { type: event.type });
+      }
+    },
+  },
+});
+```
+
+Firestore can run a transaction more than once when it conflicts, so the hook can run more than once for one append, with new ids each time. Only the writes of the attempt that commits are kept, so the hook must only write to the transaction, with no other side effect. It must not read, because Firestore rejects a read after a write in a transaction.
 
 ### `asEventStore(firestoreEventStore)`
 
@@ -167,7 +186,7 @@ Appends events to a stream.
 - `options`: Optional append options
   - `expectedStreamVersion`: Version constraint
 
-**Returns:** `Promise<AppendToStreamResult>`
+**Returns:** `Promise<AppendToStreamResult>`, with `nextExpectedStreamVersion`, `createdNewStream` and `messageIds`, the `messageId` stored on each event, in the order of the events given.
 
 ```typescript
 const result = await eventStore.appendToStream(

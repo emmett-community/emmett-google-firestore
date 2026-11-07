@@ -331,6 +331,72 @@ describe('FirestoreEventStore E2E Tests', () => {
     });
   });
 
+  describe('append hooks', () => {
+    const registered = (id: string): UserEvent => ({
+      type: 'UserRegistered',
+      data: { userId: id, email: `${id}@example.com`, name: id },
+    });
+
+    const extraIds = async () =>
+      (await firestore.collection('extra').get()).docs.map((doc) => doc.id).sort();
+
+    const storeWithExtraDocs = () =>
+      getFirestoreEventStore(firestore, {
+        hooks: {
+          beforeCommit: (transaction, events) => {
+            for (const event of events) {
+              transaction.set(firestore.collection('extra').doc(event.messageId), {
+                type: event.type,
+              });
+            }
+          },
+        },
+      });
+
+    it('should commit the writes of the hook with the events and return the messageIds', async () => {
+      const { messageIds } = await storeWithExtraDocs().appendToStream('User-Hook', [
+        registered('a'),
+        registered('b'),
+      ]);
+
+      const stored = await eventStore.readStream<UserEvent>('User-Hook');
+      expect(stored.map((e) => e.metadata.messageId)).toEqual(messageIds);
+      expect(await extraIds()).toEqual([...messageIds].sort());
+    });
+
+    it('should store nothing when the hook throws', async () => {
+      const store = getFirestoreEventStore(firestore, {
+        hooks: {
+          beforeCommit: (transaction) => {
+            transaction.set(firestore.collection('extra').doc('never'), { written: true });
+            throw new Error('hook failed');
+          },
+        },
+      });
+
+      await expect(store.appendToStream('User-Hook', [registered('a')])).rejects.toThrow(
+        'hook failed',
+      );
+
+      expect(await eventStore.readStream('User-Hook')).toEqual([]);
+      expect(await extraIds()).toEqual([]);
+    });
+
+    it('should keep only the writes of the committed attempt when transactions retry', async () => {
+      const store = storeWithExtraDocs();
+
+      await Promise.allSettled(
+        Array.from({ length: 5 }, (_, i) =>
+          store.appendToStream('User-Contended', [registered(`${i}`)]),
+        ),
+      );
+
+      const stored = await eventStore.readStream<UserEvent>('User-Contended');
+      expect(stored.length).toBeGreaterThan(0);
+      expect(await extraIds()).toEqual(stored.map((e) => e.metadata.messageId).sort());
+    });
+  });
+
   describe('concurrent operations', () => {
     it('should handle concurrent appends to different streams', async () => {
       const promises = Array.from({ length: 10 }, (_, i) =>
