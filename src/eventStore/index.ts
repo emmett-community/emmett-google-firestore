@@ -11,6 +11,7 @@ export type {
   AppendToStreamOptions,
   AppendToStreamResult,
   AppendedEvent,
+  BeforeCommitHook,
   ReadStreamOptions,
   ReadByGlobalPositionOptions,
   ExpectedStreamVersion,

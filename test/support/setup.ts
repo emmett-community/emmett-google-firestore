@@ -5,7 +5,7 @@
 jest.setTimeout(30000);
 
 // Add BigInt serialization support for Jest
-// @ts-ignore
-BigInt.prototype.toJSON = function() {
+// @ts-expect-error BigInt has no toJSON in the standard library types
+BigInt.prototype.toJSON = function () {
   return this.toString();
 };

@@ -138,7 +138,10 @@ class CollectionGroupReference extends CollectionReference {
   constructor(
     firestore: InMemoryFirestore,
     id: string,
-    private readonly members: Array<{ ownerDocId?: string; data: CollectionData }>,
+    private readonly members: Array<{
+      ownerDocId?: string;
+      data: CollectionData;
+    }>,
   ) {
     super(firestore, id, new Map(), id);
   }
@@ -147,11 +150,13 @@ class CollectionGroupReference extends CollectionReference {
     const separator = key.indexOf('/');
     const ownerDocId = key.slice(0, separator);
     const docId = key.slice(separator + 1);
-    const member = this.members.find((m) => (m.ownerDocId ?? '') === ownerDocId && m.data.has(docId));
+    const member = this.members.find(
+      (m) => (m.ownerDocId ?? '') === ownerDocId && m.data.has(docId),
+    );
     return new DocumentReference(
       this.firestore,
       docId,
-      member?.data ?? new Map(),
+      member?.data ?? new Map<string, DocRecord>(),
       `${this.id}/${key}`,
       this.id,
       ownerDocId === '' ? undefined : ownerDocId,
@@ -160,9 +165,10 @@ class CollectionGroupReference extends CollectionReference {
 
   override getEntries(): Array<[string, DocRecord]> {
     return this.members.flatMap(({ ownerDocId, data }) =>
-      Array.from(data.entries()).map(
-        ([docId, record]): [string, DocRecord] => [`${ownerDocId ?? ''}/${docId}`, record],
-      ),
+      Array.from(data.entries()).map(([docId, record]): [string, DocRecord] => [
+        `${ownerDocId ?? ''}/${docId}`,
+        record,
+      ]),
     );
   }
 }
@@ -185,25 +191,34 @@ class Query {
   }
 
   orderBy(field: string, direction: 'asc' | 'desc' = 'asc'): Query {
-    return new Query(this.collectionRef, this.filters, { field, direction }, this.limitCount);
+    return new Query(
+      this.collectionRef,
+      this.filters,
+      { field, direction },
+      this.limitCount,
+    );
   }
 
   limit(count: number): Query {
     return new Query(this.collectionRef, this.filters, this.order, count);
   }
 
-  async get(): Promise<QuerySnapshot> {
+  get(): Promise<QuerySnapshot> {
     let entries = this.collectionRef
       .getEntries()
       .filter(([, record]) => record.data !== undefined);
 
     for (const filter of this.filters) {
-      entries = entries.filter(([, record]) => matchesFilter(record.data!, filter));
+      entries = entries.filter(([, record]) =>
+        matchesFilter(record.data!, filter),
+      );
     }
 
     if (this.order) {
       const { field, direction } = this.order;
-      entries.sort((a, b) => compareValues(a[1].data?.[field], b[1].data?.[field], direction));
+      entries.sort((a, b) =>
+        compareValues(a[1].data?.[field], b[1].data?.[field], direction),
+      );
     }
 
     if (this.limitCount !== undefined) {
@@ -211,18 +226,23 @@ class Query {
     }
 
     const docs = entries.map(
-      ([id, record]) => new DocumentSnapshot(this.collectionRef.doc(id), record),
+      ([id, record]) =>
+        new DocumentSnapshot(this.collectionRef.doc(id), record),
     );
 
-    return new QuerySnapshot(docs);
+    return Promise.resolve(new QuerySnapshot(docs));
   }
 }
 
+/** Same `code` as the error of Firestore when `create` finds an existing document. */
+const ALREADY_EXISTS = 6;
+
 class InMemoryTransaction {
   private readonly writes: Array<() => void> = [];
+  private readonly creates: DocumentReference[] = [];
 
-  async get(docRef: DocumentReference): Promise<DocumentSnapshot> {
-    return new DocumentSnapshot(docRef, docRef.getRecord());
+  get(docRef: DocumentReference): Promise<DocumentSnapshot> {
+    return Promise.resolve(new DocumentSnapshot(docRef, docRef.getRecord()));
   }
 
   /** Buffered like in Firestore: the write applies only when the transaction commits. */
@@ -230,7 +250,30 @@ class InMemoryTransaction {
     this.writes.push(() => docRef.setData(data));
   }
 
+  /** Fails the whole commit, with no write applied, when the document already exists. */
+  create(docRef: DocumentReference, data: DocumentData): void {
+    this.creates.push(docRef);
+    this.writes.push(() => docRef.setData(data));
+  }
+
+  delete(docRef: DocumentReference): void {
+    this.writes.push(() => docRef.delete());
+  }
+
   commit(): void {
+    const existing = this.creates.find(
+      (ref) => ref.getRecord()?.data !== undefined,
+    );
+    if (existing) {
+      throw Object.assign(
+        new Error(
+          `${ALREADY_EXISTS} ALREADY_EXISTS: Document already exists: ${existing.path}`,
+        ),
+        {
+          code: ALREADY_EXISTS,
+        },
+      );
+    }
     for (const write of this.writes) {
       write();
     }
@@ -244,10 +287,11 @@ class WriteBatch {
     this.deletes.push(docRef);
   }
 
-  async commit(): Promise<void> {
+  commit(): Promise<void> {
     for (const ref of this.deletes) {
       ref.delete();
     }
+    return Promise.resolve();
   }
 }
 
@@ -268,7 +312,11 @@ export class InMemoryFirestore {
   collectionGroup(name: string): CollectionReference {
     const members: Array<{ ownerDocId?: string; data: CollectionData }> = [];
 
-    const visit = (collection: CollectionData, collectionName: string, ownerDocId?: string): void => {
+    const visit = (
+      collection: CollectionData,
+      collectionName: string,
+      ownerDocId?: string,
+    ): void => {
       if (collectionName === name) {
         members.push({ ownerDocId, data: collection });
       }
@@ -286,19 +334,21 @@ export class InMemoryFirestore {
     return new CollectionGroupReference(this, name, members);
   }
 
-  async listCollections(): Promise<CollectionReference[]> {
+  listCollections(): Promise<CollectionReference[]> {
     const collections = Array.from(this.collections.entries())
       .filter(([, data]) => data.size > 0)
       .map(([name, data]) => new CollectionReference(this, name, data, name));
 
-    return collections;
+    return Promise.resolve(collections);
   }
 
   batch(): WriteBatch {
     return new WriteBatch();
   }
 
-  async runTransaction<T>(updateFunction: (transaction: InMemoryTransaction) => Promise<T>): Promise<T> {
+  async runTransaction<T>(
+    updateFunction: (transaction: InMemoryTransaction) => Promise<T>,
+  ): Promise<T> {
     const run = async () => {
       const transaction = new InMemoryTransaction();
       const result = await updateFunction(transaction);
@@ -313,8 +363,8 @@ export class InMemoryFirestore {
     return resultPromise;
   }
 
-  async terminate(): Promise<void> {
-    return;
+  terminate(): Promise<void> {
+    return Promise.resolve();
   }
 
   getCollection(name: string): CollectionData {
@@ -367,7 +417,11 @@ function matchesFilter(data: DocumentData, filter: QueryFilter): boolean {
   }
 }
 
-function compareValues(a: unknown, b: unknown, direction: 'asc' | 'desc'): number {
+function compareValues(
+  a: unknown,
+  b: unknown,
+  direction: 'asc' | 'desc',
+): number {
   const order = direction === 'asc' ? 1 : -1;
   if (a === b) {
     return 0;

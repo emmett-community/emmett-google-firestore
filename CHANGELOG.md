@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-11-07
+
+### Added
+
+- `beforeCommit` option of `appendToStream`: a hook for that append only, run in its transaction after `hooks.beforeCommit` of the store, with the same rules. It lets a caller keep a write atomic with one append, such as the record of an inbox.
+- `BeforeCommitHook` type, shared by the store hook and the option.
+- `InMemoryFirestore` transactions support `create` and `delete`. A commit whose `create` finds an existing document fails with `code` 6 (`ALREADY_EXISTS`), like Firestore, and applies none of its writes.
+
+### Changed
+
+- Linting runs again: the ESLint configuration moved to the flat format of ESLint 9 (`eslint.config.mjs`, with `tsconfig.eslint.json` so the tests are type checked), with the same rules. Sources and tests are formatted with Prettier, and the issues the linter found in the tests and in `InMemoryFirestore` are fixed, with no change of behavior.
+
 ## [0.7.0] - 2026-11-07
 
 ### Added

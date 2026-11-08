@@ -103,9 +103,9 @@ describe('FirestoreEventStore Integration Tests', () => {
     });
 
     it('should throw error when appending empty array', async () => {
-      await expect(
-        eventStore.appendToStream('User-999', []),
-      ).rejects.toThrow('Cannot append empty event array');
+      await expect(eventStore.appendToStream('User-999', [])).rejects.toThrow(
+        'Cannot append empty event array',
+      );
     });
 
     describe('optimistic concurrency', () => {
@@ -200,7 +200,11 @@ describe('FirestoreEventStore Integration Tests', () => {
             [
               {
                 type: 'UserRegistered',
-                data: { userId: '555', email: 'test@example.com', name: 'Test' },
+                data: {
+                  userId: '555',
+                  email: 'test@example.com',
+                  name: 'Test',
+                },
               } as UserEvent,
             ],
             { expectedStreamVersion: STREAM_EXISTS },
@@ -307,7 +311,9 @@ describe('FirestoreEventStore Integration Tests', () => {
       expect(events[0].metadata.streamName).toBe(streamName);
       expect(events[0].metadata.streamVersion).toBe(BigInt(0));
       expect(events[0].metadata.streamPosition).toBe(BigInt(0));
-      expect(events[0].metadata.globalPosition).toBeGreaterThanOrEqual(BigInt(0));
+      expect(events[0].metadata.globalPosition).toBeGreaterThanOrEqual(
+        BigInt(0),
+      );
       expect(events[0].metadata.timestamp).toBeInstanceOf(Date);
     });
   });
@@ -395,7 +401,9 @@ async function deleteCollection(
 
 async function deleteQueryBatch(
   firestore: InMemoryFirestore,
-  query: { get: () => Promise<{ size: number; docs: Array<{ ref: unknown }> }> },
+  query: {
+    get: () => Promise<{ size: number; docs: Array<{ ref: unknown }> }>;
+  },
   resolve: () => void,
   reject: (error: Error) => void,
 ): Promise<void> {
@@ -409,7 +417,11 @@ async function deleteQueryBatch(
 
     const batch = firestore.batch();
     snapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref as any);
+      batch.delete(
+        doc.ref as Parameters<
+          ReturnType<InMemoryFirestore['batch']>['delete']
+        >[0],
+      );
     });
     await batch.commit();
 

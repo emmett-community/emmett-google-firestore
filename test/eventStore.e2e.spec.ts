@@ -4,6 +4,7 @@ import type { Event } from '@event-driven-io/emmett';
 import { GenericContainer, Wait } from 'testcontainers';
 import {
   getFirestoreEventStore,
+  type BeforeCommitHook,
   type FirestoreEventStore,
   ExpectedVersionConflictError,
 } from '../src';
@@ -33,17 +34,31 @@ let emulatorPort = 0;
 const emulatorUrl = () => `http://${emulatorHost}:${emulatorPort}`;
 
 const startEmulator = async () => {
-  const container = await new GenericContainer('myfstartup/firebase-emulator-suite:15')
+  const container = await new GenericContainer(
+    'myfstartup/firebase-emulator-suite:15',
+  )
     .withPlatform('linux/amd64')
     .withExposedPorts(4000, 8080)
     .withBindMounts([
       {
-        source: path.join(process.cwd(), 'test', 'support', 'firebase', 'firebase.json'),
+        source: path.join(
+          process.cwd(),
+          'test',
+          'support',
+          'firebase',
+          'firebase.json',
+        ),
         target: '/app/firebase.json',
         mode: 'ro' as const,
       },
       {
-        source: path.join(process.cwd(), 'test', 'support', 'firebase', '.firebaserc'),
+        source: path.join(
+          process.cwd(),
+          'test',
+          'support',
+          'firebase',
+          '.firebaserc',
+        ),
         target: '/app/.firebaserc',
         mode: 'ro' as const,
       },
@@ -69,7 +84,9 @@ const resetEmulator = async () => {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to reset Firestore emulator: ${res.status} ${res.statusText}`);
+    throw new Error(
+      `Failed to reset Firestore emulator: ${res.status} ${res.statusText}`,
+    );
   }
 };
 
@@ -129,7 +146,10 @@ describe('FirestoreEventStore E2E Tests', () => {
         data: { userId: id, email: `${id}@example.com`, name: id },
       });
 
-      await eventStore.appendToStream('User-A', [registered('a1'), registered('a2')]);
+      await eventStore.appendToStream('User-A', [
+        registered('a1'),
+        registered('a2'),
+      ]);
       await eventStore.appendToStream('User-B', [registered('b1')]);
       await eventStore.appendToStream('User-A', [registered('a3')]);
 
@@ -140,13 +160,21 @@ describe('FirestoreEventStore E2E Tests', () => {
         BigInt(2),
         BigInt(3),
       ]);
-      expect(all.map((e) => e.metadata.streamName)).toEqual(['User-A', 'User-A', 'User-B', 'User-A']);
+      expect(all.map((e) => e.metadata.streamName)).toEqual([
+        'User-A',
+        'User-A',
+        'User-B',
+        'User-A',
+      ]);
 
       const rest = await eventStore.readByGlobalPosition<UserEvent>({
         after: BigInt(1),
         maxCount: 2,
       });
-      expect(rest.map((e) => e.metadata.globalPosition)).toEqual([BigInt(2), BigInt(3)]);
+      expect(rest.map((e) => e.metadata.globalPosition)).toEqual([
+        BigInt(2),
+        BigInt(3),
+      ]);
     });
 
     it('should return the same messageId when reading by stream and by global position', async () => {
@@ -338,26 +366,31 @@ describe('FirestoreEventStore E2E Tests', () => {
     });
 
     const extraIds = async () =>
-      (await firestore.collection('extra').get()).docs.map((doc) => doc.id).sort();
+      (await firestore.collection('extra').get()).docs
+        .map((doc) => doc.id)
+        .sort();
 
     const storeWithExtraDocs = () =>
       getFirestoreEventStore(firestore, {
         hooks: {
           beforeCommit: (transaction, events) => {
             for (const event of events) {
-              transaction.set(firestore.collection('extra').doc(event.messageId), {
-                type: event.type,
-              });
+              transaction.set(
+                firestore.collection('extra').doc(event.messageId),
+                {
+                  type: event.type,
+                },
+              );
             }
           },
         },
       });
 
     it('should commit the writes of the hook with the events and return the messageIds', async () => {
-      const { messageIds } = await storeWithExtraDocs().appendToStream('User-Hook', [
-        registered('a'),
-        registered('b'),
-      ]);
+      const { messageIds } = await storeWithExtraDocs().appendToStream(
+        'User-Hook',
+        [registered('a'), registered('b')],
+      );
 
       const stored = await eventStore.readStream<UserEvent>('User-Hook');
       expect(stored.map((e) => e.metadata.messageId)).toEqual(messageIds);
@@ -368,15 +401,17 @@ describe('FirestoreEventStore E2E Tests', () => {
       const store = getFirestoreEventStore(firestore, {
         hooks: {
           beforeCommit: (transaction) => {
-            transaction.set(firestore.collection('extra').doc('never'), { written: true });
+            transaction.set(firestore.collection('extra').doc('never'), {
+              written: true,
+            });
             throw new Error('hook failed');
           },
         },
       });
 
-      await expect(store.appendToStream('User-Hook', [registered('a')])).rejects.toThrow(
-        'hook failed',
-      );
+      await expect(
+        store.appendToStream('User-Hook', [registered('a')]),
+      ).rejects.toThrow('hook failed');
 
       expect(await eventStore.readStream('User-Hook')).toEqual([]);
       expect(await extraIds()).toEqual([]);
@@ -393,7 +428,91 @@ describe('FirestoreEventStore E2E Tests', () => {
 
       const stored = await eventStore.readStream<UserEvent>('User-Contended');
       expect(stored.length).toBeGreaterThan(0);
-      expect(await extraIds()).toEqual(stored.map((e) => e.metadata.messageId).sort());
+      expect(await extraIds()).toEqual(
+        stored.map((e) => e.metadata.messageId).sort(),
+      );
+    });
+
+    describe('beforeCommit option of a call', () => {
+      const claim =
+        (key: string): BeforeCommitHook =>
+        (transaction) => {
+          transaction.create(firestore.collection('claims').doc(key), { key });
+        };
+
+      const claims = async () =>
+        (await firestore.collection('claims').get()).size;
+
+      it('should commit its writes with the events, after the hook of the store', async () => {
+        const order: string[] = [];
+        const store = getFirestoreEventStore(firestore, {
+          hooks: {
+            beforeCommit: () => {
+              order.push('store');
+            },
+          },
+        });
+
+        const { messageIds } = await store.appendToStream(
+          'User-Call',
+          [registered('a')],
+          {
+            beforeCommit: (transaction, events) => {
+              order.push('call');
+              for (const event of events) {
+                transaction.set(
+                  firestore.collection('extra').doc(event.messageId),
+                  {
+                    type: event.type,
+                  },
+                );
+              }
+            },
+          },
+        );
+
+        expect(order.slice(-2)).toEqual(['store', 'call']);
+        expect(await extraIds()).toEqual(messageIds);
+      });
+
+      it('should store nothing when it creates a document that already exists', async () => {
+        await eventStore.appendToStream('User-Call-1', [registered('a')], {
+          beforeCommit: claim('message-1'),
+        });
+
+        const append = eventStore.appendToStream(
+          'User-Call-2',
+          [registered('b')],
+          {
+            beforeCommit: claim('message-1'),
+          },
+        );
+
+        await expect(append).rejects.toMatchObject({ code: 6 });
+        expect(await eventStore.readStream('User-Call-2')).toEqual([]);
+        expect(await claims()).toBe(1);
+      });
+
+      it('should let only one of two concurrent appends create the same document', async () => {
+        const results = await Promise.allSettled([
+          eventStore.appendToStream('User-Call-1', [registered('a')], {
+            beforeCommit: claim('message-1'),
+          }),
+          eventStore.appendToStream('User-Call-2', [registered('b')], {
+            beforeCommit: claim('message-1'),
+          }),
+        ]);
+
+        expect(
+          results.filter((result) => result.status === 'fulfilled'),
+        ).toHaveLength(1);
+        const stored = [
+          ...(await eventStore.readStream('User-Call-1')),
+          ...(await eventStore.readStream('User-Call-2')),
+        ];
+        expect(stored).toHaveLength(1);
+        expect(await claims()).toBe(1);
+      });
     });
   });
 
@@ -403,7 +522,11 @@ describe('FirestoreEventStore E2E Tests', () => {
         eventStore.appendToStream(`User-Concurrent-${i}`, [
           {
             type: 'UserRegistered',
-            data: { userId: `${i}`, email: `${i}@example.com`, name: `User${i}` },
+            data: {
+              userId: `${i}`,
+              email: `${i}@example.com`,
+              name: `User${i}`,
+            },
           } as UserEvent,
         ]),
       );

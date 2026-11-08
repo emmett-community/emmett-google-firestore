@@ -106,7 +106,10 @@ export function assertExpectedVersionMatchesCurrent(
 
   // Specific version number
   const expectedBigInt = BigInt(expectedVersion);
-  if (currentVersion === STREAM_DOES_NOT_EXIST || currentVersion !== expectedBigInt) {
+  if (
+    currentVersion === STREAM_DOES_NOT_EXIST ||
+    currentVersion !== expectedBigInt
+  ) {
     throw new ExpectedVersionConflictError(
       streamName,
       expectedVersion,

@@ -21,7 +21,9 @@ describe('Observability', () => {
       const consoleWarnSpy = jest.spyOn(console, 'warn');
       const consoleErrorSpy = jest.spyOn(console, 'error');
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore);
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+      );
 
       await eventStore.appendToStream('Test-1', [
         { type: 'TestEvent', data: { value: 1 } },
@@ -43,7 +45,9 @@ describe('Observability', () => {
     });
 
     it('should behave identically to version without observability', async () => {
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore);
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+      );
 
       const result = await eventStore.appendToStream('Test-2', [
         { type: 'TestEvent', data: { value: 1 } },
@@ -68,7 +72,10 @@ describe('Observability', () => {
       });
 
       // New format: (context, message)
-      expect(logger.info).toHaveBeenCalledWith({}, 'FirestoreEventStore initialized');
+      expect(logger.info).toHaveBeenCalledWith(
+        {},
+        'FirestoreEventStore initialized',
+      );
     });
 
     it('should call logger.debug on readStream with (context, message) format', async () => {
@@ -79,9 +86,12 @@ describe('Observability', () => {
         error: jest.fn(),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       await eventStore.readStream('Test-Stream');
 
@@ -104,9 +114,12 @@ describe('Observability', () => {
         error: jest.fn(),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       await eventStore.appendToStream('Test-Stream', [
         { type: 'TestEvent', data: { value: 1 } },
@@ -152,9 +165,12 @@ describe('Observability', () => {
         error: jest.fn(),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       // First append succeeds
       await eventStore.appendToStream('Test-Stream', [
@@ -204,7 +220,9 @@ describe('Observability', () => {
         observability: { logger },
       });
 
-      await expect(eventStore.readStream('Test-Stream')).rejects.toThrow('Firestore error');
+      await expect(eventStore.readStream('Test-Stream')).rejects.toThrow(
+        'Firestore error',
+      );
 
       // New format: (context, message)
       expect(logger.error).toHaveBeenCalledWith(
@@ -221,9 +239,12 @@ describe('Observability', () => {
         error: jest.fn(),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       const sensitiveData = { password: 'secret123', creditCard: '1234-5678' };
 
@@ -232,8 +253,8 @@ describe('Observability', () => {
       ]);
 
       const allCalls = [
-        ...(logger.info as jest.Mock).mock.calls,
-        ...(logger.debug as jest.Mock).mock.calls,
+        ...(logger.info as jest.Mock<void, unknown[]>).mock.calls,
+        ...(logger.debug as jest.Mock<void, unknown[]>).mock.calls,
       ];
 
       for (const call of allCalls) {

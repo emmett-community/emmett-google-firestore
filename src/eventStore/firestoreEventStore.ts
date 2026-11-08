@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { Firestore, Transaction, Timestamp } from '@google-cloud/firestore';
+import type {
+  Firestore,
+  Transaction,
+  Timestamp,
+} from '@google-cloud/firestore';
 import type {
   AggregateStreamOptions,
   AggregateStreamResult,
@@ -13,6 +17,7 @@ import type {
   AppendToStreamOptions,
   AppendToStreamResult,
   AppendedEvent,
+  BeforeCommitHook,
   CollectionConfig,
   EventDocument,
   ExpectedStreamVersion,
@@ -26,7 +31,11 @@ import type {
   ReadStreamOptions,
   StreamMetadata,
 } from './types';
-import { NO_CONCURRENCY_CHECK, STREAM_DOES_NOT_EXIST, ExpectedVersionConflictError } from './types';
+import {
+  NO_CONCURRENCY_CHECK,
+  STREAM_DOES_NOT_EXIST,
+  ExpectedVersionConflictError,
+} from './types';
 import {
   assertExpectedVersionMatchesCurrent,
   getCurrentStreamVersion,
@@ -242,7 +251,9 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
         maxCount,
       });
 
-      let query = this.firestore.collectionGroup('events').orderBy('globalPosition', 'asc');
+      let query = this.firestore
+        .collectionGroup('events')
+        .orderBy('globalPosition', 'asc');
 
       if (after !== undefined) {
         query = query.where('globalPosition', '>', Number(after));
@@ -255,7 +266,10 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
 
       // events/{version} lives under streams/{streamName}, so the stream name is the grandparent id
       const events = snapshot.docs.map((doc) =>
-        toReadEvent<EventType>(doc.ref.parent.parent!.id, doc.data() as EventDocument),
+        toReadEvent<EventType>(
+          doc.ref.parent.parent!.id,
+          doc.data() as EventDocument,
+        ),
       );
 
       span.setAttribute('emmett.event_count', events.length);
@@ -266,7 +280,9 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       span.recordException(error as Error);
       span.setStatus({ code: SpanStatusCode.ERROR });
 
-      safeLog.error(this.logger, 'Failed to read by global position', { error });
+      safeLog.error(this.logger, 'Failed to read by global position', {
+        error,
+      });
 
       throw error;
     } finally {
@@ -325,7 +341,8 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
         throw new Error('Cannot append empty event array');
       }
 
-      const { expectedStreamVersion = NO_CONCURRENCY_CHECK } = options;
+      const { expectedStreamVersion = NO_CONCURRENCY_CHECK, beforeCommit } =
+        options;
 
       safeLog.debug(this.logger, 'Appending to stream', {
         streamName,
@@ -335,16 +352,22 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       });
 
       // Execute in transaction for atomicity
-      const result = await this.firestore.runTransaction(async (transaction) => {
-        return await this.appendToStreamInTransaction(
-          transaction,
-          streamName,
-          events,
-          expectedStreamVersion,
-        );
-      });
+      const result = await this.firestore.runTransaction(
+        async (transaction) => {
+          return await this.appendToStreamInTransaction(
+            transaction,
+            streamName,
+            events,
+            expectedStreamVersion,
+            beforeCommit,
+          );
+        },
+      );
 
-      span.setAttribute('emmett.new_version', Number(result.nextExpectedStreamVersion));
+      span.setAttribute(
+        'emmett.new_version',
+        Number(result.nextExpectedStreamVersion),
+      );
       span.setAttribute('emmett.created_new_stream', result.createdNewStream);
       span.setStatus({ code: SpanStatusCode.OK });
 
@@ -390,6 +413,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
     streamName: string,
     events: EventType[],
     expectedStreamVersion: ExpectedStreamVersion,
+    beforeCommit?: BeforeCommitHook,
   ): Promise<AppendToStreamResult> {
     // 1. Get stream metadata reference
     const streamRef = this.firestore
@@ -409,7 +433,10 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
     safeLog.debug(this.logger, 'Read stream metadata', {
       streamName,
       exists: streamExists,
-      currentVersion: currentVersion === STREAM_DOES_NOT_EXIST ? 'none' : currentVersion.toString(),
+      currentVersion:
+        currentVersion === STREAM_DOES_NOT_EXIST
+          ? 'none'
+          : currentVersion.toString(),
     });
 
     assertExpectedVersionMatchesCurrent(
@@ -425,7 +452,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
 
     const counterDoc = await transaction.get(counterRef);
     let globalPosition = counterDoc.exists
-      ? (counterDoc.data()?.value as number) ?? 0
+      ? ((counterDoc.data()?.value as number) ?? 0)
       : 0;
 
     // 4. Calculate starting version for new events
@@ -433,7 +460,9 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       currentVersion === STREAM_DOES_NOT_EXIST ? -1 : Number(currentVersion);
 
     // 5. Append events to subcollection
-    const TimestampClass = this.firestore.constructor as unknown as { Timestamp: typeof Timestamp };
+    const TimestampClass = this.firestore.constructor as unknown as {
+      Timestamp: typeof Timestamp;
+    };
     const now = TimestampClass.Timestamp.now();
     const appendedEvents: AppendedEvent[] = [];
 
@@ -443,7 +472,8 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
         .collection('events')
         .doc(padVersion(eventVersion));
 
-      const metadata = (event as { metadata?: Record<string, unknown> }).metadata;
+      const metadata = (event as { metadata?: Record<string, unknown> })
+        .metadata;
       const messageId = randomUUID();
       const eventDocument: EventDocument = {
         type: event.type,
@@ -490,8 +520,9 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       newVersion,
     });
 
-    // 8. Let the hook add its own writes to this transaction
+    // 8. Let the hooks add their own writes to this transaction: the store one, then the call one
     await this.hooks.beforeCommit?.(transaction, appendedEvents);
+    await beforeCommit?.(transaction, appendedEvents);
 
     // 9. Return result
     return {
@@ -533,7 +564,10 @@ export function asEventStore(
     streamName: string,
     options?: EmmettReadStreamOptions<bigint>,
   ): Promise<ReadStreamResult<EventType, FirestoreReadEventMetadata>> {
-    const events = await store.readStream<EventType>(streamName, normalizeReadOptions(options));
+    const events = await store.readStream<EventType>(
+      streamName,
+      normalizeReadOptions(options),
+    );
     const streamExists = events.length > 0;
     const currentStreamVersion = streamExists
       ? events[events.length - 1].metadata.streamVersion
@@ -548,7 +582,11 @@ export function asEventStore(
 
   function aggregateStream<State, EventType extends Event>(
     streamName: string,
-    options: AggregateStreamOptions<State, EventType, FirestoreReadEventMetadata>,
+    options: AggregateStreamOptions<
+      State,
+      EventType,
+      FirestoreReadEventMetadata
+    >,
   ): Promise<AggregateStreamResult<State, bigint>> {
     return store.aggregateStream(streamName, {
       evolve: options.evolve,

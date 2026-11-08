@@ -1,6 +1,6 @@
 # Roadmap
 
-Work planned for this library, driven by the rules of the my-f-startup reference architecture (eventing and read models: ADR-003, ADR-007, ADR-010). All changes must be backward compatible. Status was checked against the code of version 0.7.0.
+Work planned for this library, driven by the rules of the my-f-startup reference architecture (eventing and read models: ADR-003, ADR-007, ADR-010). All changes must be backward compatible. Status was checked against the code of version 0.8.0.
 
 Legend: Done, Partial, Open.
 
@@ -13,6 +13,7 @@ Legend: Done, Partial, Open.
 | Read by global position, with its index | Done | `readByGlobalPosition` plus the collection group index on `events.globalPosition`, documented in the README (0.6.0). Covered by the e2e suite on the Firestore emulator, which does not enforce indexes, so the index itself is not yet verified against a real Firestore project |
 | `/testing` entry with the in-memory Firestore fake | Done | `InMemoryFirestore` in `src/testing`, exported as `/testing` (0.6.0) |
 | Hook inside the transaction of an append, and `messageId` returned by the append | Done | `hooks.beforeCommit` and `messageIds` (0.7.0). Generic: the transactional outbox of ADR-003 uses it from its own library |
+| Hook for one append only | Done | `beforeCommit` option of `appendToStream`, run after the store hook (0.8.0). Generic: the inbox of ADR-013 passes its recorder through it. The in-memory fake gains `create` and `delete` in transactions, with the `ALREADY_EXISTS` failure of `create` |
 | Asynchronous projection runner (see below) | Open | Location is to be decided |
 
 ## Asynchronous projections

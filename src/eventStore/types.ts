@@ -1,5 +1,13 @@
-import type { Firestore, Timestamp, Transaction } from '@google-cloud/firestore';
-import type { Event, ReadEvent, ReadEventMetadataWithGlobalPosition } from '@event-driven-io/emmett';
+import type {
+  Firestore,
+  Timestamp,
+  Transaction,
+} from '@google-cloud/firestore';
+import type {
+  Event,
+  ReadEvent,
+  ReadEventMetadataWithGlobalPosition,
+} from '@event-driven-io/emmett';
 import {
   STREAM_DOES_NOT_EXIST,
   STREAM_EXISTS,
@@ -87,6 +95,11 @@ export { STREAM_DOES_NOT_EXIST, STREAM_EXISTS, NO_CONCURRENCY_CHECK };
  */
 export interface AppendToStreamOptions {
   expectedStreamVersion?: ExpectedStreamVersion;
+  /**
+   * Runs inside the transaction of this append only, after `hooks.beforeCommit` of the store.
+   * Same rules as the store hook (see {@link FirestoreEventStoreHooks.beforeCommit}).
+   */
+  beforeCommit?: BeforeCommitHook;
 }
 
 /**
@@ -186,6 +199,14 @@ export interface AppendedEvent {
 }
 
 /**
+ * A function that adds writes to the transaction of an append
+ */
+export type BeforeCommitHook = (
+  transaction: Transaction,
+  events: AppendedEvent[],
+) => void | Promise<void>;
+
+/**
  * Extension points of the event store
  */
 export interface FirestoreEventStoreHooks {
@@ -197,7 +218,7 @@ export interface FirestoreEventStoreHooks {
    * than once for one append: it must only write to the transaction, with no other side effect.
    * It must not read, because Firestore rejects a read after a write in a transaction.
    */
-  beforeCommit?: (transaction: Transaction, events: AppendedEvent[]) => void | Promise<void>;
+  beforeCommit?: BeforeCommitHook;
 }
 
 /**
