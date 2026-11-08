@@ -166,6 +166,22 @@ const eventStore = getFirestoreEventStore(firestore, {
 
 Firestore can run a transaction more than once when it conflicts, so the hook can run more than once for one append, with new ids each time. Only the writes of the attempt that commits are kept, so the hook must only write to the transaction, with no other side effect. It must not read, because Firestore rejects a read after a write in a transaction.
 
+A single append can also take a hook of its own, the `beforeCommit` option of `appendToStream`. It follows the same rules and runs in the same transaction, after the hook of the store, and only for that call. This is how to keep something atomic with one append only, such as the record of an inbox that marks a message as handled:
+
+```typescript
+await eventStore.appendToStream('User-123', events, {
+  beforeCommit: (transaction) => {
+    transaction.create(firestore.collection('inbox').doc(`handler:${messageId}`), {
+      state: 'done',
+    });
+  },
+});
+```
+
+`transaction.create` fails when the document already exists, which aborts the append, so of two appends that create the same document only one stores its events. The in-memory Firestore of `/testing` buffers `set`, `create` and `delete` in a transaction and fails a commit whose `create` finds an existing document with the same `code` as Firestore (6, `ALREADY_EXISTS`).
+
+The `EventStore` type of Emmett does not declare the option. When the store is used through that type (for example after `asEventStore`), pass the options as a value typed with this library's `AppendToStreamOptions` instead of an object literal.
+
 ### `asEventStore(firestoreEventStore)`
 
 Wraps a `FirestoreEventStore` instance in Emmett's `EventStore` interface so it can be passed into helpers that expect the canonical contract (CommandHandlers, workflows, etc.).
@@ -185,6 +201,7 @@ Appends events to a stream.
 - `events`: Array of events to append
 - `options`: Optional append options
   - `expectedStreamVersion`: Version constraint
+  - `beforeCommit`: Hook run in the transaction of this append only (see [Append hooks](#append-hooks))
 
 **Returns:** `Promise<AppendToStreamResult>`, with `nextExpectedStreamVersion`, `createdNewStream` and `messageIds`, the `messageId` stored on each event, in the order of the events given.
 

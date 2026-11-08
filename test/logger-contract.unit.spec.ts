@@ -65,9 +65,12 @@ describe('Logger Contract', () => {
         error: (...args: unknown[]) => calls.push(args),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       await eventStore.readStream('Test-Stream');
 
@@ -108,7 +111,9 @@ describe('Logger Contract', () => {
 
       // Find the initialization call (has no context data)
       const initCall = calls.find(
-        (c) => typeof c[1] === 'string' && c[1] === 'FirestoreEventStore initialized',
+        (c) =>
+          typeof c[1] === 'string' &&
+          c[1] === 'FirestoreEventStore initialized',
       );
       expect(initCall).toBeDefined();
 
@@ -126,9 +131,12 @@ describe('Logger Contract', () => {
         error: (...args: unknown[]) => calls.push(args),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       await eventStore.appendToStream('Test-Stream', [
         { type: 'TestEvent', data: { value: 1 } },
@@ -161,9 +169,12 @@ describe('Logger Contract', () => {
         error: jest.fn(),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       await eventStore.readStream('Test-Stream');
 
@@ -195,9 +206,12 @@ describe('Logger Contract', () => {
         error: jest.fn(),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       // First append succeeds
       await eventStore.appendToStream('Test-Stream', [
@@ -270,9 +284,12 @@ describe('Logger Contract', () => {
         error: jest.fn(),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger },
+        },
+      );
 
       await eventStore.readStream('Test-Stream');
 
@@ -384,9 +401,12 @@ describe('Logger Contract', () => {
         error: (context, message) => calls.push(['error', context, message]),
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger: pinoStyleLogger },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger: pinoStyleLogger },
+        },
+      );
 
       await eventStore.readStream('Test-Stream');
 
@@ -427,9 +447,12 @@ describe('Logger Contract', () => {
         },
       };
 
-      const eventStore = getFirestoreEventStore(firestore as unknown as Firestore, {
-        observability: { logger: winstonAdapter },
-      });
+      const eventStore = getFirestoreEventStore(
+        firestore as unknown as Firestore,
+        {
+          observability: { logger: winstonAdapter },
+        },
+      );
 
       await eventStore.readStream('Test-Stream');
 

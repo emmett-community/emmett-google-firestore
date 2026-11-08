@@ -57,7 +57,9 @@ describe('Utility Functions', () => {
     });
 
     it('should parse stream name with UUID', () => {
-      const result = parseStreamName('Order-550e8400-e29b-41d4-a716-446655440000');
+      const result = parseStreamName(
+        'Order-550e8400-e29b-41d4-a716-446655440000',
+      );
       expect(result).toEqual({
         streamType: 'Order',
         streamId: '550e8400-e29b-41d4-a716-446655440000',
@@ -156,13 +158,25 @@ describe('Utility Functions', () => {
     describe('with NO_CONCURRENCY_CHECK version', () => {
       it('should not throw for any current version', () => {
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', NO_CONCURRENCY_CHECK, BigInt(0)),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            NO_CONCURRENCY_CHECK,
+            BigInt(0),
+          ),
         ).not.toThrow();
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', NO_CONCURRENCY_CHECK, BigInt(100)),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            NO_CONCURRENCY_CHECK,
+            BigInt(100),
+          ),
         ).not.toThrow();
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', NO_CONCURRENCY_CHECK, STREAM_DOES_NOT_EXIST),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            NO_CONCURRENCY_CHECK,
+            STREAM_DOES_NOT_EXIST,
+          ),
         ).not.toThrow();
       });
     });
@@ -170,19 +184,31 @@ describe('Utility Functions', () => {
     describe('with STREAM_DOES_NOT_EXIST expectation', () => {
       it('should not throw when stream does not exist', () => {
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', STREAM_DOES_NOT_EXIST, STREAM_DOES_NOT_EXIST),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            STREAM_DOES_NOT_EXIST,
+            STREAM_DOES_NOT_EXIST,
+          ),
         ).not.toThrow();
       });
 
       it('should throw when stream exists', () => {
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', STREAM_DOES_NOT_EXIST, BigInt(0)),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            STREAM_DOES_NOT_EXIST,
+            BigInt(0),
+          ),
         ).toThrow(ExpectedVersionConflictError);
       });
 
       it('should throw with correct error details', () => {
         try {
-          assertExpectedVersionMatchesCurrent('User-123', STREAM_DOES_NOT_EXIST, BigInt(5));
+          assertExpectedVersionMatchesCurrent(
+            'User-123',
+            STREAM_DOES_NOT_EXIST,
+            BigInt(5),
+          );
           fail('Should have thrown ExpectedVersionConflictError');
         } catch (error) {
           expect(error).toBeInstanceOf(ExpectedVersionConflictError);
@@ -197,16 +223,28 @@ describe('Utility Functions', () => {
     describe('with STREAM_EXISTS expectation', () => {
       it('should not throw when stream exists', () => {
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', STREAM_EXISTS, BigInt(0)),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            STREAM_EXISTS,
+            BigInt(0),
+          ),
         ).not.toThrow();
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', STREAM_EXISTS, BigInt(100)),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            STREAM_EXISTS,
+            BigInt(100),
+          ),
         ).not.toThrow();
       });
 
       it('should throw when stream does not exist', () => {
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', STREAM_EXISTS, STREAM_DOES_NOT_EXIST),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            STREAM_EXISTS,
+            STREAM_DOES_NOT_EXIST,
+          ),
         ).toThrow(ExpectedVersionConflictError);
       });
     });
@@ -217,25 +255,41 @@ describe('Utility Functions', () => {
           assertExpectedVersionMatchesCurrent('stream-1', BigInt(0), BigInt(0)),
         ).not.toThrow();
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', BigInt(42), BigInt(42)),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            BigInt(42),
+            BigInt(42),
+          ),
         ).not.toThrow();
       });
 
       it('should throw when versions do not match', () => {
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', BigInt(5), BigInt(10)),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            BigInt(5),
+            BigInt(10),
+          ),
         ).toThrow(ExpectedVersionConflictError);
       });
 
       it('should throw when stream does not exist', () => {
         expect(() =>
-          assertExpectedVersionMatchesCurrent('stream-1', BigInt(0), STREAM_DOES_NOT_EXIST),
+          assertExpectedVersionMatchesCurrent(
+            'stream-1',
+            BigInt(0),
+            STREAM_DOES_NOT_EXIST,
+          ),
         ).toThrow(ExpectedVersionConflictError);
       });
 
       it('should throw with correct error details for mismatch', () => {
         try {
-          assertExpectedVersionMatchesCurrent('Order-456', BigInt(10), BigInt(15));
+          assertExpectedVersionMatchesCurrent(
+            'Order-456',
+            BigInt(10),
+            BigInt(15),
+          );
           fail('Should have thrown ExpectedVersionConflictError');
         } catch (error) {
           expect(error).toBeInstanceOf(ExpectedVersionConflictError);
@@ -250,7 +304,11 @@ describe('Utility Functions', () => {
 
   describe('ExpectedVersionConflictError', () => {
     it('should create error with correct properties', () => {
-      const error = new ExpectedVersionConflictError('stream-1', BigInt(5), BigInt(10));
+      const error = new ExpectedVersionConflictError(
+        'stream-1',
+        BigInt(5),
+        BigInt(10),
+      );
 
       expect(error).toBeInstanceOf(Error);
       expect(error).toBeInstanceOf(ExpectedVersionConflictError);
@@ -261,14 +319,22 @@ describe('Utility Functions', () => {
     });
 
     it('should have descriptive error message', () => {
-      const error = new ExpectedVersionConflictError('User-123', BigInt(5), BigInt(10));
+      const error = new ExpectedVersionConflictError(
+        'User-123',
+        BigInt(5),
+        BigInt(10),
+      );
       expect(error.message).toContain('User-123');
       expect(error.message).toContain('5');
       expect(error.message).toContain('10');
     });
 
     it('should handle STREAM_DOES_NOT_EXIST in message', () => {
-      const error = new ExpectedVersionConflictError('stream-1', STREAM_DOES_NOT_EXIST, BigInt(5));
+      const error = new ExpectedVersionConflictError(
+        'stream-1',
+        STREAM_DOES_NOT_EXIST,
+        BigInt(5),
+      );
       expect(error.message).toContain(STREAM_DOES_NOT_EXIST);
     });
   });
