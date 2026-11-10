@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-11-09
+
+### Added
+
+- Tests: the tracing context with an OpenTelemetry SDK registered (`@opentelemetry/sdk-trace-base` and `@opentelemetry/context-async-hooks` as development dependencies), and Emmett's command handler retrying a command after an `ExpectedVersionConflictError`.
+
+### Changed
+
+- The build and test workflow runs `lint` and `format:check`, and skips the build and tests, still reporting the check, when a pull request changes only documentation or examples.
+
+### Fixed
+
+- The spans `emmett.firestore.read_stream`, `emmett.firestore.read_by_global_position` and `emmett.firestore.append_to_stream` are active while the event store calls Firestore. Before, the spans of the Firestore client and of the `beforeCommit` hooks were siblings of the operation span instead of its children.
+
 ## [0.8.0] - 2026-11-07
 
 ### Added
