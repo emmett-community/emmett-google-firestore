@@ -12,7 +12,7 @@ import type {
   ReadStreamOptions as EmmettReadStreamOptions,
   ReadStreamResult,
 } from '@event-driven-io/emmett';
-import { trace, SpanStatusCode } from '@opentelemetry/api';
+import { context, trace, SpanStatusCode, type Span } from '@opentelemetry/api';
 import type {
   AppendToStreamOptions,
   AppendToStreamResult,
@@ -44,6 +44,15 @@ import {
 } from './utils';
 
 const tracer = trace.getTracer('@emmett-community/emmett-google-firestore');
+
+/**
+ * @internal - NOT part of public API
+ * Runs a Firestore call with the operation span active, so the spans of the Firestore client
+ * are its children.
+ */
+function withinSpan<T>(span: Span, call: () => Promise<T>): Promise<T> {
+  return context.with(trace.setSpan(context.active(), span), call);
+}
 
 /**
  * @internal - NOT part of public API
@@ -201,7 +210,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       }
 
       // Execute query
-      const snapshot = await query.get();
+      const snapshot = await withinSpan(span, () => query.get());
 
       // Transform Firestore documents to events
       const events = snapshot.docs.map((doc) =>
@@ -262,7 +271,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
         query = query.limit(maxCount);
       }
 
-      const snapshot = await query.get();
+      const snapshot = await withinSpan(span, () => query.get());
 
       // events/{version} lives under streams/{streamName}, so the stream name is the grandparent id
       const events = snapshot.docs.map((doc) =>
@@ -352,8 +361,8 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
       });
 
       // Execute in transaction for atomicity
-      const result = await this.firestore.runTransaction(
-        async (transaction) => {
+      const result = await withinSpan(span, () =>
+        this.firestore.runTransaction(async (transaction) => {
           return await this.appendToStreamInTransaction(
             transaction,
             streamName,
@@ -361,7 +370,7 @@ export class FirestoreEventStoreImpl implements FirestoreEventStore {
             expectedStreamVersion,
             beforeCommit,
           );
-        },
+        }),
       );
 
       span.setAttribute(

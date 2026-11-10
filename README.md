@@ -611,7 +611,10 @@ The package uses `@opentelemetry/api` directly. Spans are created passively:
 **Span names:**
 
 - `emmett.firestore.read_stream`
+- `emmett.firestore.read_by_global_position`
 - `emmett.firestore.append_to_stream`
+
+Each span is a child of the span active when the operation is called, and is active while the event store calls Firestore, so the spans of the Firestore client (`Transaction.Run`, `Transaction.Commit`, queries), which it creates when an OpenTelemetry SDK is registered, are its children. The `beforeCommit` hooks run under the append span too.
 
 **Attributes:**
 
